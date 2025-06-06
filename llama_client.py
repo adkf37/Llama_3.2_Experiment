@@ -7,9 +7,7 @@ class LlamaClient:
     
     def __init__(self, model_name: Optional[str] = None):
         self.config = config
-        self.model_name = model_name or self.config.get('model.name', 'llama3.2:3b')
-        self.client = ollama.Client()
-        
+        self.model_name = model_name or self.config.get('model.name', 'llama3.2:3b')        self.client = ollama.Client()
         # Check if model is available
         if not self._check_model_availability():
             print(f"⚠️  Model {self.model_name} not found. Available models:")
@@ -20,10 +18,9 @@ class LlamaClient:
         """Check if the specified model is available locally."""
         try:
             models_response = self.client.list()
-            if hasattr(models_response, 'models') and models_response.models:
-                available_models = [model.model for model in models_response.models]
-            elif isinstance(models_response, dict) and 'models' in models_response:
-                available_models = [m.get('name', m.get('model', '')) for m in models_response['models']]
+            # Handle different response formats from ollama client
+            if isinstance(models_response, dict) and 'models' in models_response:
+                available_models = [str(m.get('name', m.get('model', ''))) for m in models_response['models'] if isinstance(m, dict)]
             else:
                 available_models = []
             return self.model_name in available_models
@@ -63,13 +60,12 @@ class LlamaClient:
             options['num_predict'] = max_tokens
         else:
             options['num_predict'] = self.config.get('model.max_tokens', 2048)
-        
-        try:
+          try:
             response = self.client.chat(
                 model=self.model_name,
                 messages=[{'role': 'user', 'content': prompt}],
-                options=options,
-                stream=stream
+                stream=stream,
+                **options
             )
             if stream:
                 return response
