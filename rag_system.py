@@ -1,10 +1,11 @@
 import os
 import chromadb
 from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
+from sentence_transformers.SentenceTransformer import SentenceTransformer
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 import json
+import numpy as np
 from config import config
 
 class RAGSystem:
@@ -35,10 +36,10 @@ class RAGSystem:
     def add_documents(self, documents: List[str], metadata: Optional[List[Dict[str, Any]]] = None, ids: Optional[List[str]] = None) -> None:
         """Add documents to the vector database."""
         if not documents:
-            return
-        
-        # Generate embeddings
-        embeddings = self.embedding_model.encode(documents).tolist()
+            return        # Generate embeddings
+        embeddings_raw = self.embedding_model.encode(documents)
+        # Convert to list format safely
+        embeddings = np.array(embeddings_raw).tolist()
         
         # Generate IDs if not provided
         if ids is None:
@@ -126,10 +127,9 @@ class RAGSystem:
     def query(self, query: str, n_results: Optional[int] = None) -> List[Dict[str, Any]]:
         """Query the knowledge base for relevant documents."""
         if n_results is None:
-            n_results = self.config.get('rag.max_retrieved_docs', 5)
-        
-        # Generate query embedding
-        query_embedding = self.embedding_model.encode([query]).tolist()[0]
+            n_results = self.config.get('rag.max_retrieved_docs', 5)        # Generate query embedding
+        query_embedding_raw = self.embedding_model.encode([query])
+        query_embedding = np.array(query_embedding_raw).tolist()[0]
           # Search in collection
         actual_n_results = n_results if n_results is not None else 5
         results = self.collection.query(

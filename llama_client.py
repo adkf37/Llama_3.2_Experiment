@@ -1,5 +1,6 @@
 import ollama
-from typing import List, Dict, Any, Optional, Union
+from ollama._types import Options # Import Options
+from typing import List, Dict, Any, Optional, Union, cast
 from config import config
 
 class LlamaClient:
@@ -7,7 +8,9 @@ class LlamaClient:
     
     def __init__(self, model_name: Optional[str] = None):
         self.config = config
-        self.model_name = model_name or self.config.get('model.name', 'llama3.2:3b')        self.client = ollama.Client()
+        self.model_name = model_name or self.config.get('model.name', 'llama3.2:3b')
+        self.client = ollama.Client()
+        
         # Check if model is available
         if not self._check_model_availability():
             print(f"⚠️  Model {self.model_name} not found. Available models:")
@@ -32,12 +35,12 @@ class LlamaClient:
         """List all available models."""
         try:
             models_response = self.client.list()
-            if hasattr(models_response, 'models') and models_response.models:
-                models = [str(model.model) for model in models_response.models if model.model]
-            elif isinstance(models_response, dict) and 'models' in models_response:
+            models = []
+            
+            # Handle dict response format
+            if isinstance(models_response, dict) and 'models' in models_response:
                 models = [str(m.get('name', m.get('model', ''))) for m in models_response['models'] if m.get('name') or m.get('model')]
-            else:
-                models = []
+            
             for model in models:
                 print(f"  📦 {model}")
             return models
@@ -49,32 +52,36 @@ class LlamaClient:
                  temperature: Optional[float] = None,
                  max_tokens: Optional[int] = None,
                  stream: bool = False) -> Union[str, Any]:
-        """Generate text using the Llama model."""
+        """Generate text using the Llama model (now using client.chat)."""
         # Prepare model parameters
-        options: Dict[str, Any] = {}
+        current_options: Dict[str, Any] = {}
         if temperature is not None:
-            options['temperature'] = temperature
+            current_options['temperature'] = temperature
         else:
-            options['temperature'] = self.config.get('model.temperature', 0.7)
+            current_options['temperature'] = self.config.get('model.temperature', 0.7)
         if max_tokens is not None:
-            options['num_predict'] = max_tokens
+            current_options['num_predict'] = max_tokens
         else:
-            options['num_predict'] = self.config.get('model.max_tokens', 2048)
-          try:
+            current_options['num_predict'] = self.config.get('model.max_tokens', 2048)
+        
+        # Cast to ollama Options type
+        typed_options: Options = cast(Options, current_options)
+
+        try:
             response = self.client.chat(
                 model=self.model_name,
                 messages=[{'role': 'user', 'content': prompt}],
                 stream=stream,
-                **options
+                options=typed_options # Use typed_options here
             )
+            
             if stream:
-                return response
-            # Simplified non-stream response handling
-            if isinstance(response, dict):
-                if 'message' in response and isinstance(response['message'], dict) and 'content' in response['message']:
-                    return response['message']['content']
-                if 'response' in response:
-                    return response['response']
+                return response # For stream, return the generator
+            
+            # Handle non-stream response for client.chat
+            if isinstance(response, dict) and 'message' in response and isinstance(response['message'], dict) and 'content' in response['message']:
+                return response['message']['content']
+            # Fallback for unexpected response structure
             return str(response)
         except Exception as e:
             print(f"Error generating response: {e}")
@@ -86,8 +93,13 @@ class LlamaClient:
                               max_tokens: Optional[int] = None) -> str:
         """Generate text with additional context from RAG system."""
         context_text = "\n\n".join([f"Context {i+1}: {ctx}" for i, ctx in enumerate(context)])
-        enhanced_prompt = (f"""Context Information:\n{context_text}\n\nQuestion: {prompt}\n
-Please answer based on the context. If irrelevant, provide a general answer.""")
+        enhanced_prompt = f"""Context Information:
+{context_text}
+
+Question: {prompt}
+
+Please answer based on the context provided. If the context is not relevant, provide a general answer."""
+        
         response = self.generate(
             prompt=enhanced_prompt,
             temperature=temperature,
@@ -96,7 +108,11 @@ Please answer based on the context. If irrelevant, provide a general answer.""")
         return response if isinstance(response, str) else str(response)
 
     def get_model_info(self) -> Dict[str, Any]:
-        return {'model_name': self.model_name, 'available': self._check_model_availability()}
+        """Get model information."""
+        return {
+            'model_name': self.model_name, 
+            'available': self._check_model_availability()
+        }
 
     def pull_model(self, model_name: str) -> bool:
         """Pull a model from Ollama registry."""

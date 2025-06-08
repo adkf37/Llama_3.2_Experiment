@@ -13,18 +13,27 @@ def run_command(command, description):
     """Run a command and handle errors."""
     print(f"🔄 {description}...")
     try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        # Specify encoding and error handling for subprocess output
+        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        # Optionally print stdout if needed for debugging, or if the command is expected to produce useful output
+        # if result.stdout:
+        #     print(result.stdout)
         print(f"✅ {description} completed")
         return True
     except subprocess.CalledProcessError as e:
         print(f"❌ {description} failed: {e}")
+        # Print decoded stderr
         print(f"Error output: {e.stderr}")
+        return False
+    except Exception as ex: # Catch other potential exceptions like FileNotFoundError
+        print(f"❌ An unexpected error occurred while running command '{command}': {ex}")
         return False
 
 def check_ollama():
     """Check if Ollama is installed."""
     try:
-        result = subprocess.run("ollama --version", shell=True, capture_output=True, text=True)
+        # Specify encoding and error handling
+        result = subprocess.run("ollama --version", shell=True, capture_output=True, text=True, encoding='utf-8', errors='replace')
         if result.returncode == 0:
             print("✅ Ollama is installed")
             return True
@@ -67,7 +76,8 @@ def main():
     
     # Check if Ollama is running
     try:
-        result = subprocess.run("ollama list", shell=True, capture_output=True, text=True)
+        # Specify encoding and error handling
+        result = subprocess.run("ollama list", shell=True, capture_output=True, text=True, encoding='utf-8', errors='replace')
         if result.returncode == 0:
             print("✅ Ollama is running")
         else:
