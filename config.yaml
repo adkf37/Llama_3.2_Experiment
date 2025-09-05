@@ -1,33 +1,35 @@
 # Model Configuration
 model:
-  name: "llama3.2:3b"
+  name: "qwen3:8b"
   temperature: 0.7
   top_p: 0.9
   max_tokens: 2048
   repeat_penalty: 1.1
-  context_window: 4096
+  context_window: 40000
 
 # RAG Configuration
 rag:
   chunk_size: 500
   chunk_overlap: 50
-  similarity_threshold: 0.7
-  max_retrieved_docs: 5
+  #similarity_threshold: 0.7
+  max_retrieved_docs: 10
   embedding_model: "all-MiniLM-L6-v2"
 
 # Vector Database Configuration
 vectordb:
   persist_directory: "./data/chroma_db"
   collection_name: "knowledge_base"
+  batch_size: 4000 # Maximum number of items to add to ChromaDB in a single batch
 
 # Application Settings
 app:
   interface: "cli"  # Options: cli, web
   web_port: 8501
   debug: false
+  default_use_rag: false  # Set to false to disable RAG by default
 
 # Knowledge Base Settings
 knowledge:
   base_directory: "./knowledge_base"
-  supported_formats: [".txt", ".md", ".pdf"]
-  auto_ingest: true
+  supported_formats: [".txt", ".md", ".pdf", ".csv"]
+  auto_ingest: false

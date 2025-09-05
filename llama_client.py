@@ -1,7 +1,8 @@
 import ollama
-from ollama._types import Options # Import Options
+from ollama._types import Options
 from typing import List, Dict, Any, Optional, Union, cast
 from config import config
+import json
 
 class LlamaClient:
     """Client for interacting with Llama models via Ollama."""
@@ -13,114 +14,122 @@ class LlamaClient:
         
         # Check if model is available
         if not self._check_model_availability():
-            print(f"⚠️  Model {self.model_name} not found. Available models:")
-            self.list_models()
-            print(f"To download the model, run: ollama pull {self.model_name}")
+            print(f"⚠️  Model {self.model_name} not found. Please pull it with: ollama pull {self.model_name}")
 
     def _check_model_availability(self) -> bool:
         """Check if the specified model is available locally."""
         try:
-            models_response = self.client.list()
-            # Handle different response formats from ollama client
-            if isinstance(models_response, dict) and 'models' in models_response:
-                available_models = [str(m.get('name', m.get('model', ''))) for m in models_response['models'] if isinstance(m, dict)]
-            else:
-                available_models = []
-            return self.model_name in available_models
+            models = self.client.list()
+            available_models = [model['name'] for model in models['models']]
+            
+            if self.model_name not in available_models:
+                print(f"⚠️  Model {self.model_name} not found. Available models:")
+                for model in available_models:
+                    print(f"  📦 {model}")
+                print(f"To download the model, run: ollama pull {self.model_name}")
+                return False
+            return True
         except Exception as e:
-            print(f"Error checking model availability: {e}")
+            print(f"❌ Error checking model availability: {e}")
             return False
 
-    def list_models(self) -> List[str]:
-        """List all available models."""
+    def generate_with_tools(self, prompt: str, tools: List[Dict[str, Any]], 
+                          temperature: Optional[float] = None,
+                          max_tokens: Optional[int] = None) -> Dict[str, Any]:
+        """Generate response with tool calling capability."""
+        temperature = temperature or self.config.get('model.temperature', 0.7)
+        max_tokens = max_tokens or self.config.get('model.max_tokens', 2048)
+        
+        # Create system prompt that explains available tools
+        tools_desc = []
+        for tool in tools:
+            params = tool.get("parameters", {})
+            required = tool.get("required", [])
+            param_desc = ", ".join([f"{k}: {v.get('description', k)}" for k, v in params.items()])
+            tools_desc.append(f"- {tool['name']}({param_desc}): {tool['description']}")
+
+        system_prompt = f"""You are an assistant that can use tools to answer questions about homicide data. 
+
+Available tools:
+{chr(10).join(tools_desc)}
+
+When you need data to answer a question, respond with a tool call in this exact format:
+TOOL_CALL: {{"name": "tool_name", "arguments": {{"arg": "value"}}}}
+
+Examples:
+- "How many homicides in 2023?" → TOOL_CALL: {{"name": "get_homicides_by_year", "arguments": {{"year": 2023}}}}
+- "What are the overall statistics?" → TOOL_CALL: {{"name": "get_homicide_statistics", "arguments": {{}}}}
+- "What location had the most homicides?" → TOOL_CALL: {{"name": "get_homicide_statistics", "arguments": {{}}}}
+
+If you don't need tools, just answer normally."""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ]
+
         try:
-            models_response = self.client.list()
-            models = []
+            typed_options = cast(Options, {
+                'temperature': temperature,
+                'num_predict': max_tokens,
+                'top_p': self.config.get('model.top_p', 0.9),
+                'repeat_penalty': self.config.get('model.repeat_penalty', 1.1)
+            })
+
+            response = self.client.chat(
+                model=self.model_name,
+                messages=messages,
+                stream=False,
+                options=typed_options
+            )
             
-            # Handle dict response format
-            if isinstance(models_response, dict) and 'models' in models_response:
-                models = [str(m.get('name', m.get('model', ''))) for m in models_response['models'] if m.get('name') or m.get('model')]
+            return {
+                "content": response['message']['content'],
+                "needs_tool_call": "TOOL_CALL:" in response['message']['content']
+            }
             
-            for model in models:
-                print(f"  📦 {model}")
-            return models
         except Exception as e:
-            print(f"Error listing models: {e}")
-            return []
+            return {"content": f"❌ Error generating response: {e}", "needs_tool_call": False}
 
     def generate(self, prompt: str,
                  temperature: Optional[float] = None,
                  max_tokens: Optional[int] = None,
                  stream: bool = False) -> Union[str, Any]:
-        """Generate text using the Llama model (now using client.chat)."""
-        # Prepare model parameters
-        current_options: Dict[str, Any] = {}
-        if temperature is not None:
-            current_options['temperature'] = temperature
-        else:
-            current_options['temperature'] = self.config.get('model.temperature', 0.7)
-        if max_tokens is not None:
-            current_options['num_predict'] = max_tokens
-        else:
-            current_options['num_predict'] = self.config.get('model.max_tokens', 2048)
+        """Generate a response from the model."""
+        temperature = temperature or self.config.get('model.temperature', 0.7)
+        max_tokens = max_tokens or self.config.get('model.max_tokens', 2048)
         
-        # Cast to ollama Options type
-        typed_options: Options = cast(Options, current_options)
-
         try:
+            typed_options = cast(Options, {
+                'temperature': temperature,
+                'num_predict': max_tokens,
+                'top_p': self.config.get('model.top_p', 0.9),
+                'repeat_penalty': self.config.get('model.repeat_penalty', 1.1)
+            })
+
             response = self.client.chat(
                 model=self.model_name,
                 messages=[{'role': 'user', 'content': prompt}],
                 stream=stream,
-                options=typed_options # Use typed_options here
+                options=typed_options 
             )
             
             if stream:
-                return response # For stream, return the generator
-            
-            # Handle non-stream response for client.chat
-            if isinstance(response, dict) and 'message' in response and isinstance(response['message'], dict) and 'content' in response['message']:
+                return response
+            else:
                 return response['message']['content']
-            # Fallback for unexpected response structure
-            return str(response)
+                
         except Exception as e:
-            print(f"Error generating response: {e}")
-            return f"Error: {e}"
+            return f"❌ Error generating response: {e}"
 
-    def generate_with_context(self, prompt: str,
-                              context: List[str],
-                              temperature: Optional[float] = None,
-                              max_tokens: Optional[int] = None) -> str:
-        """Generate text with additional context from RAG system."""
-        context_text = "\n\n".join([f"Context {i+1}: {ctx}" for i, ctx in enumerate(context)])
-        enhanced_prompt = f"""Context Information:
-{context_text}
+    def generate_with_context(self, prompt: str, context: str,
+                             temperature: Optional[float] = None,
+                             max_tokens: Optional[int] = None) -> str:
+        """Generate a response with provided context."""
+        context_prompt = f"""Context: {context}
 
 Question: {prompt}
 
-Please answer based on the context provided. If the context is not relevant, provide a general answer."""
+Answer based on the context provided:"""
         
-        response = self.generate(
-            prompt=enhanced_prompt,
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
-        return response if isinstance(response, str) else str(response)
-
-    def get_model_info(self) -> Dict[str, Any]:
-        """Get model information."""
-        return {
-            'model_name': self.model_name, 
-            'available': self._check_model_availability()
-        }
-
-    def pull_model(self, model_name: str) -> bool:
-        """Pull a model from Ollama registry."""
-        try:
-            print(f"Pulling model: {model_name}")
-            self.client.pull(model_name)
-            print(f"✅ Successfully pulled {model_name}")
-            return True
-        except Exception as e:
-            print(f"❌ Failed to pull {model_name}: {e}")
-            return False
+        return self.generate(context_prompt, temperature, max_tokens)

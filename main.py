@@ -1,98 +1,51 @@
 #!/usr/bin/env python3
 """
-Llama 3.2 RAG System - Main Application
+Local LLM with MCP Tools - Main Application
 """
 
-import os
 import sys
-from pathlib import Path
 from typing import Optional
 import argparse
 
 from llama_client import LlamaClient
-from rag_system import RAGSystem
 from config import config
+from mcp_integration import mcp_integration
+from intelligent_mcp import intelligent_mcp
 
-class LlamaRAGApp:
-    """Main application class for Llama RAG system."""
+class LocalLLMApp:
+    """Main application class for Local LLM with MCP tools."""
     
     def __init__(self):
         self.llama_client = LlamaClient()
-        self.rag_system = RAGSystem()
-        self.setup_knowledge_base()
-    
-    def setup_knowledge_base(self):
-        """Setup and ingest knowledge base if auto_ingest is enabled."""
-        if config.get('knowledge.auto_ingest', True):
-            print("🔄 Setting up knowledge base...")
-            self.rag_system.ingest_knowledge_base()
-            
-            # Show collection info
-            info = self.rag_system.get_collection_info()
-            print(f"📚 Knowledge base: {info['document_count']} documents loaded")
-    
-    def ask_question(self, question: str, use_rag: bool = True, temperature: Optional[float] = None) -> str:
-        """Ask a question with optional RAG enhancement."""
-        print(f"\n🤔 Question: {question}")
-        
-        if use_rag:
-            # Get relevant context
-            context = self.rag_system.get_relevant_context(question)
-            
-            if context:
-                print(f"📖 Found {len(context)} relevant context documents")
-                response = self.llama_client.generate_with_context(
-                    prompt=question,
-                    context=context,
-                    temperature=temperature
-                )
-            else:
-                print("📖 No relevant context found, using base model")
-                response = self.llama_client.generate(
-                    prompt=question,
-                    temperature=temperature
-                )
-        else:
-            print("🤖 Using base model (no RAG)")
-            response = self.llama_client.generate(
-                prompt=question,
-                temperature=temperature
-            )
-        
-        return response
-    
-    def add_fact(self, fact: str, source: str = "manual") -> None:
-        """Add a new fact to the knowledge base."""
-        self.rag_system.add_documents(
-            documents=[fact],
-            metadata=[{"source": source, "type": "fact"}]
-        )
-        print(f"✅ Added fact to knowledge base: {fact[:100]}...")
-    
+        print("✅ Local LLM application initialized")
+        print("🔧 MCP tools available for homicide data queries")
+
+    def ask_question(self, question: str, temperature: Optional[float] = None) -> str:
+        """Ask a question using base model only."""
+        temperature = temperature or config.get('model.temperature', 0.7)
+        print("🤖 Using base model")
+        return self.llama_client.generate(prompt=question, temperature=temperature)
+
+    def ask_question_with_mcp(self, question: str, temperature: Optional[float] = None) -> str:
+        """Ask a question that can use MCP tools intelligently."""
+        return intelligent_mcp.handle_question_with_tools(question, self.llama_client)
+
     def interactive_mode(self):
         """Run the application in interactive mode."""
-        print("🦙 Llama 3.2 RAG System - Interactive Mode")
-        print("=" * 50)
+        print("🚀 Local LLM with MCP Tools")
+        print(f"📱 Model: {self.llama_client.model_name}")
+        print("🔧 MCP tools available for homicide data queries")
+        print("\n💡 Ask questions naturally - the system will automatically use tools when needed!")
+        print("   Examples: 'What location had the most homicides?', 'How many homicides in 2023?'")
+        print("\n📋 Commands:")
+        print("   /help - Show help")
+        print("   /mcp-tools - Show available MCP tools")  
+        print("   /mcp <tool> [args] - Manual tool call")
+        print("   /notools <question> - Use base model without tools")
+        print("   /quit - Exit")
+        print("\n" + "="*60)
         
-        # Show current configuration
-        print(f"Model: {config.get('model.name')}")
-        print(f"Temperature: {config.get('model.temperature')}")
-        print(f"Max tokens: {config.get('model.max_tokens')}")
-        
-        # Show knowledge base info
-        info = self.rag_system.get_collection_info()
-        print(f"Knowledge base: {info['document_count']} documents")
-        print("\nCommands:")
-        print("  /help - Show this help")
-        print("  /config - Show current configuration")
-        print("  /temp <value> - Set temperature (0.0-2.0)")
-        print("  /add <fact> - Add a fact to knowledge base")
-        print("  /norag <question> - Ask without RAG")
-        print("  /info - Show knowledge base info")
-        print("  /quit - Exit")
-        print("-" * 50)
-        
-        current_temp = config.get('model.temperature')
+        current_temp = config.get('model.temperature', 0.7)
         
         while True:
             try:
@@ -100,21 +53,18 @@ class LlamaRAGApp:
                 
                 if not user_input:
                     continue
-                
+                    
+                if user_input.lower() in ['/quit', '/exit', 'quit', 'exit']:
+                    print("👋 Goodbye!")
+                    break
+                    
                 # Handle commands
                 if user_input.startswith('/'):
                     parts = user_input.split(' ', 1)
                     command = parts[0].lower()
                     
                     if command == '/help':
-                        print("\nCommands:")
-                        print("  /help - Show this help")
-                        print("  /config - Show current configuration")
-                        print("  /temp <value> - Set temperature (0.0-2.0)")
-                        print("  /add <fact> - Add a fact to knowledge base")
-                        print("  /norag <question> - Ask without RAG")
-                        print("  /info - Show knowledge base info")
-                        print("  /quit - Exit")
+                        self._show_help()
                     
                     elif command == '/config':
                         print(f"\nCurrent Configuration:")
@@ -137,78 +87,137 @@ class LlamaRAGApp:
                         else:
                             print(f"Current temperature: {current_temp}")
                     
-                    elif command == '/add':
-                        if len(parts) > 1:
-                            self.add_fact(parts[1])
-                        else:
-                            print("❌ Please provide a fact to add")
+                    elif command == '/mcp-tools':
+                        tools = intelligent_mcp.get_tools()
+                        print("\n🔧 Available MCP Tools:")
+                        for tool in tools:
+                            params = tool.get("parameters", {})
+                            param_str = ", ".join(params.keys()) if params else "no parameters"
+                            print(f"  • {tool['name']} ({param_str}): {tool['description']}")
                     
-                    elif command == '/norag':
+                    elif command == '/mcp':
                         if len(parts) > 1:
-                            response = self.ask_question(parts[1], use_rag=False, temperature=current_temp)
-                            print(f"\n🤖 Assistant: {response}")
+                            # Manual MCP tool call
+                            mcp_parts = parts[1].split(' ', 1)
+                            tool_name = mcp_parts[0]
+                            args_str = mcp_parts[1] if len(mcp_parts) > 1 else ''
+                            
+                            try:
+                                if args_str:
+                                    # Simple argument parsing
+                                    args = {}
+                                    if args_str.isdigit():
+                                        # Single number argument, assume it's year
+                                        args = {"year": int(args_str)}
+                                    else:
+                                        # String argument, assume it's location_query
+                                        args = {"location_query": args_str}
+                                else:
+                                    args = {}
+                                    
+                                print(f"🔧 Calling MCP tool: {tool_name}")
+                                result = mcp_integration.call_tool(tool_name, args)
+                                formatted_result = mcp_integration.format_tool_result(result)
+                                print(f"\n📋 **MCP Result:**\n{formatted_result}")
+                            except Exception as e:
+                                print(f"❌ Error calling tool: {e}")
+                        else:
+                            print("❌ Please provide a tool name")
+                            print("Usage: /mcp <tool_name> [arguments]")
+                            print("Use /mcp-tools to see available tools")
+                    
+                    elif command == '/notools':
+                        if len(parts) > 1:
+                            question = parts[1]
+                            print(f"🤔 Question: {question}")
+                            response = self.ask_question(question, temperature=current_temp)
+                            print(f"🤖 Assistant: {response}")
                         else:
                             print("❌ Please provide a question")
                     
-                    elif command == '/info':
-                        info = self.rag_system.get_collection_info()
-                        print(f"\n📊 Knowledge Base Info:")
-                        print(f"  Documents: {info['document_count']}")
-                        print(f"  Collection: {info['collection_name']}")
-                        print(f"  Embedding model: {info['embedding_model']}")
-                    
-                    elif command == '/quit':
-                        print("👋 Goodbye!")
-                        break
-                    
                     else:
-                        print("❌ Unknown command. Type /help for available commands.")
-                
+                        print(f"❌ Unknown command: {command}")
+                        print("Type /help for available commands")
+                        
                 else:
-                    # Regular question
-                    response = self.ask_question(user_input, use_rag=True, temperature=current_temp)
-                    print(f"\n🤖 Assistant: {response}")
-            
+                    # Default: Try intelligent MCP for homicide-related questions
+                    print(f"🤔 Question: {user_input}")
+                    
+                    # Check if this seems like a homicide data question
+                    homicide_keywords = ['homicide', 'murder', 'killing', 'crime', 'arrest', 'location', 'year', 'statistics', 'iucr', 'police', 'data', 'how many', 'what location', 'which']
+                    
+                    if any(keyword in user_input.lower() for keyword in homicide_keywords):
+                        print("🧠 Detected data question - using intelligent MCP...")
+                        response = self.ask_question_with_mcp(user_input)
+                    else:
+                        response = self.ask_question(user_input, temperature=current_temp)
+                    
+                    print(f"🤖 Assistant: {response}")
+                    
             except KeyboardInterrupt:
                 print("\n👋 Goodbye!")
                 break
             except Exception as e:
                 print(f"❌ Error: {e}")
 
+    def _show_help(self):
+        """Show help information."""
+        print("\n" + "="*60)
+        print("📖 HELP - Local LLM with MCP Tools")
+        print("="*60)
+        print("💬 NATURAL QUESTIONS:")
+        print("   Just type your question naturally!")
+        print("   • 'What location had the most homicides?'")
+        print("   • 'How many homicides were there in 2023?'")
+        print("   • 'Show me arrest statistics'")
+        print("   • 'What does IUCR mean?'")
+        print("   • 'Find homicides on Michigan Avenue'")
+        print()
+        print("📋 COMMANDS:")
+        print("   /help           - Show this help")
+        print("   /config         - Show current configuration")
+        print("   /temp <value>   - Set temperature (0.0-2.0)")
+        print("   /mcp-tools      - List available MCP tools")
+        print("   /mcp <tool>     - Manual tool call")
+        print("   /notools <q>    - Ask without tools (base model only)")
+        print("   /quit           - Exit application")
+        print()
+        print("🔧 AVAILABLE MCP TOOLS:")
+        tools = intelligent_mcp.get_tools()
+        for tool in tools:
+            print(f"   • {tool['name']}: {tool['description']}")
+        print("="*60)
+
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Llama 3.2 RAG System")
-    parser.add_argument("--question", "-q", help="Ask a single question and exit")
-    parser.add_argument("--no-rag", action="store_true", help="Disable RAG for this question")
-    parser.add_argument("--temperature", "-t", type=float, help="Set temperature (0.0-2.0)")
-    parser.add_argument("--setup", action="store_true", help="Setup mode - pull model and exit")
+    parser = argparse.ArgumentParser(description="Local LLM with MCP Tools")
+    parser.add_argument("--setup", action="store_true", help="Run setup mode")
+    parser.add_argument("--question", "-q", type=str, help="Ask a single question")
     
     args = parser.parse_args()
     
-    # Setup mode
+    app = LocalLLMApp()
+    
     if args.setup:
-        print("🔧 Setup Mode")
-        client = LlamaClient()
-        model_name = config.get('model.name', 'llama3.2')
-        client.pull_model(model_name)
+        print("🛠️ Setup mode - ensuring model is available...")
+        # Model availability is checked in LlamaClient.__init__
+        print("✅ Setup complete")
         return
     
-    # Initialize app
-    try:
-        app = LlamaRAGApp()
-    except Exception as e:
-        print(f"❌ Failed to initialize application: {e}")
-        print("💡 Try running with --setup first to pull the model")
-        return
-    
-    # Single question mode
     if args.question:
-        use_rag = not args.no_rag
-        response = app.ask_question(args.question, use_rag=use_rag, temperature=args.temperature)
-        print(f"\n🤖 Assistant: {response}")
+        print(f"🤔 Question: {args.question}")
+        
+        # Check if this is a homicide data question
+        homicide_keywords = ['homicide', 'murder', 'killing', 'crime', 'arrest', 'location', 'year', 'statistics', 'iucr']
+        if any(keyword in args.question.lower() for keyword in homicide_keywords):
+            response = app.ask_question_with_mcp(args.question)
+        else:
+            response = app.ask_question(args.question)
+            
+        print(f"🤖 Assistant: {response}")
         return
     
-    # Interactive mode
+    # Run in interactive mode
     app.interactive_mode()
 
 if __name__ == "__main__":
