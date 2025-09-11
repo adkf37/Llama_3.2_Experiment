@@ -57,10 +57,21 @@ When you need data to answer a question, respond with a tool call in this exact 
 TOOL_CALL: {{"name": "tool_name", "arguments": {{"arg": "value"}}}}
 
 Examples:
-- "How many homicides in 2023?" → TOOL_CALL: {{"name": "get_homicides_by_year", "arguments": {{"year": 2023}}}}
-- "What are the overall statistics?" → TOOL_CALL: {{"name": "get_homicide_statistics", "arguments": {{}}}}
-- "What location had the most homicides?" → TOOL_CALL: {{"name": "get_homicide_statistics", "arguments": {{}}}}
+- "How many homicides in 2023?" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{"start_year": 2023, "end_year": 2023}}}}
+- "What are the overall statistics?" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{}}}}
+- "Which ward had the most homicides in 2013?" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{"start_year": 2013, "end_year": 2013, "group_by": "ward"}}}}
+- "What district had the most homicides from 2020-2022?" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{"start_year": 2020, "end_year": 2022, "group_by": "district"}}}}
+- "Show top 5 community areas with homicides" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{"group_by": "community_area", "top_n": 5}}}}
+- "Find domestic violence homicides on streets" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{"domestic": true, "location_type": "STREET"}}}}
+- "What does IUCR mean?" → TOOL_CALL: {{"name": "get_iucr_info", "arguments": {{}}}}
 
+Use query_homicides_advanced for ALL data analysis. Use get_iucr_info ONLY for IUCR code explanations.
+
+IMPORTANT: For "which X had the most" or "top X" questions, ALWAYS use group_by parameter:
+- "which ward" → group_by: "ward"
+- "which district" → group_by: "district"  
+- "which community area" → group_by: "community_area"
+- "which location" → group_by: "location"
 If you don't need tools, just answer normally."""
 
         messages = [

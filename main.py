@@ -144,7 +144,7 @@ class LocalLLMApp:
                     print(f"🤔 Question: {user_input}")
                     
                     # Check if this seems like a homicide data question
-                    homicide_keywords = ['homicide', 'murder', 'killing', 'crime', 'arrest', 'location', 'year', 'statistics', 'iucr', 'police', 'data', 'how many', 'what location', 'which']
+                    homicide_keywords = ['homicide', 'murder', 'killing', 'crime', 'arrest', 'location', 'year', 'statistics', 'iucr', 'police', 'data', 'how many', 'what location', 'which', 'ward', 'district', 'community area', 'domestic', 'from', 'to', 'where arrests', 'no arrests', 'arrests made']
                     
                     if any(keyword in user_input.lower() for keyword in homicide_keywords):
                         print("🧠 Detected data question - using intelligent MCP...")
@@ -208,7 +208,7 @@ def main():
         print(f"🤔 Question: {args.question}")
         
         # Check if this is a homicide data question
-        homicide_keywords = ['homicide', 'murder', 'killing', 'crime', 'arrest', 'location', 'year', 'statistics', 'iucr']
+        homicide_keywords = ['homicide', 'murder', 'killing', 'crime', 'arrest', 'location', 'year', 'statistics', 'iucr', 'ward', 'district', 'community area', 'domestic', 'from', 'to', 'where arrests', 'no arrests', 'arrests made']
         if any(keyword in args.question.lower() for keyword in homicide_keywords):
             response = app.ask_question_with_mcp(args.question)
         else:

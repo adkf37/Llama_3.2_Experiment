@@ -9,32 +9,27 @@ class IntelligentMCPHandler:
     def __init__(self):
         self.tools = [
             {
-                "name": "get_homicides_by_year",
-                "description": "Get homicide records for a specific year",
+                "name": "query_homicides_advanced",
+                "description": "Query homicide data with flexible filtering options. Use this for ALL data analysis queries including: single years, year ranges, geographic filters, location searches, arrest status, domestic cases, and overall statistics. Examples: 'homicides in 2023', 'overall statistics', 'homicides from 2015-2019 in ward 3', 'street homicides with arrests'.",
                 "parameters": {
-                    "year": {"type": "integer", "description": "The year to get homicides for"}
+                    "start_year": {"type": "integer", "description": "Start year for date range filter (or single year if used alone)"},
+                    "end_year": {"type": "integer", "description": "End year for date range filter"},
+                    "ward": {"type": "integer", "description": "Ward number to filter by (1-50)"},
+                    "district": {"type": "integer", "description": "Police district number to filter by"},
+                    "community_area": {"type": "integer", "description": "Community area number to filter by"},
+                    "arrest_status": {"type": "boolean", "description": "Filter by arrest status: true for arrests made, false for no arrests"},
+                    "domestic": {"type": "boolean", "description": "Filter by domestic violence cases"},
+                    "location_type": {"type": "string", "description": "Filter by location type (e.g., 'STREET', 'APARTMENT', 'RESIDENCE')"},
+                    "group_by": {"type": "string", "description": "Focus results on specific grouping for 'which X had the most' queries: 'ward', 'district', 'community_area', or 'location'"},
+                    "top_n": {"type": "integer", "description": "Number of items to show in breakdowns (default 10)"}
                 },
-                "required": ["year"]
-            },
-            {
-                "name": "get_homicide_statistics", 
-                "description": "Get overall homicide statistics including totals, arrest rates, trends, and top locations",
-                "parameters": {},
                 "required": []
             },
             {
-                "name": "search_by_location",
-                "description": "Search for homicides by location (street name, area, etc.)",
-                "parameters": {
-                    "location_query": {"type": "string", "description": "Location to search for"}
-                },
-                "required": ["location_query"]
-            },
-            {
                 "name": "get_iucr_info",
-                "description": "Get information about IUCR crime codes",
+                "description": "Get information and explanations about IUCR (Illinois Uniform Crime Reporting) codes. Use this ONLY when users ask about what IUCR means, what specific codes mean, or need educational information about crime classification codes.",
                 "parameters": {
-                    "iucr_code": {"type": "string", "description": "IUCR code to get info for (optional)"}
+                    "iucr_code": {"type": "string", "description": "Specific IUCR code to look up (optional, e.g., '0110'). If not provided, returns overview of IUCR system."}
                 },
                 "required": []
             }

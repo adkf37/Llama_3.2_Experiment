@@ -60,24 +60,20 @@ class MCPIntegration:
         
         try:
             # Call the appropriate method directly on the homicide_data instance
-            if tool_name == "get_homicides_by_year":
-                year = arguments.get("year")
-                if year is None:
-                    return {"error": "Year parameter is required"}
-                limit = arguments.get("limit", 100)
-                result = self.homicide_data.get_records_by_year(int(year), int(limit))
-                
-            elif tool_name == "get_homicide_statistics":
-                start_year = arguments.get("start_year")
-                end_year = arguments.get("end_year")
-                result = self.homicide_data.get_statistics(start_year, end_year)
-                
-            elif tool_name == "search_by_location":
-                location_query = arguments.get("location_query")
-                if location_query is None:
-                    return {"error": "Location query parameter is required"}
-                limit = arguments.get("limit", 50)
-                result = self.homicide_data.search_by_location(str(location_query), int(limit))
+            if tool_name == "query_homicides_advanced":
+                result = self.homicide_data.query_homicides_advanced(
+                    start_year=arguments.get("start_year"),
+                    end_year=arguments.get("end_year"),
+                    ward=arguments.get("ward"),
+                    district=arguments.get("district"),
+                    community_area=arguments.get("community_area"),
+                    arrest_status=arguments.get("arrest_status"),
+                    domestic=arguments.get("domestic"),
+                    location_type=arguments.get("location_type"),
+                    group_by=arguments.get("group_by"),
+                    top_n=arguments.get("top_n", 10),
+                    limit=arguments.get("limit", 100)
+                )
                 
             elif tool_name == "get_iucr_info":
                 iucr_code = arguments.get("iucr_code")
@@ -127,13 +123,17 @@ class MCPIntegration:
                                     arguments[key] = value
                     else:
                         # Single argument, assume it's for the first parameter
-                        if tool_name == "get_homicides_by_year":
-                            if args_text.isdigit():
-                                arguments["year"] = int(args_text)
-                        elif tool_name == "search_by_location":
-                            arguments["location_query"] = args_text
-                        elif tool_name == "get_iucr_info":
+                        if tool_name == "get_iucr_info":
                             arguments["iucr_code"] = args_text
+                        elif tool_name == "query_homicides_advanced":
+                            # For advanced queries, try to parse simple patterns
+                            if args_text.isdigit():
+                                # Could be year or ward - assume year for single number
+                                arguments["start_year"] = int(args_text)
+                                arguments["end_year"] = int(args_text)
+                            else:
+                                # Could be location type or other string parameter
+                                arguments["location_type"] = args_text
             
             return tool_name, arguments
             
@@ -147,7 +147,86 @@ class MCPIntegration:
         
         try:
             # Format specific tool results
-            if "year" in result and "records" in result:
+            if "total_matches" in result and "filters_applied" in result:
+                # Advanced query result
+                response = f"🔍 **Advanced Homicide Query Results**\n"
+                
+                if result['filters_applied']:
+                    response += f"**Filters Applied:** {', '.join(result['filters_applied'])}\n\n"
+                
+                response += f"**Summary:**\n"
+                response += f"  Total matches: {result['total_matches']}\n"
+                response += f"  Arrests made: {result['arrest_count']} ({result['arrest_rate']})\n"
+                response += f"  Domestic cases: {result['domestic_count']} ({result['domestic_rate']})\n\n"
+                
+                # Handle primary_breakdown for focused results
+                if result.get('primary_breakdown') and result['primary_breakdown'].get('data'):
+                    breakdown = result['primary_breakdown']
+                    breakdown_type = breakdown['type'].replace('_', ' ').title()
+                    response += f"**{breakdown_type} Breakdown (Ranked by Count):**\n"
+                    
+                    sorted_items = sorted(breakdown['data'].items(), key=lambda x: x[1], reverse=True)
+                    for item, count in sorted_items:
+                        if breakdown['type'] == 'location':
+                            response += f"  {item}: {count} homicides\n"
+                        else:
+                            response += f"  {breakdown_type} {item}: {count} homicides\n"
+                    response += "\n"
+                    
+                    # For group_by queries, highlight the top result
+                    if sorted_items:
+                        top_item, top_count = sorted_items[0]
+                        response += f"**Answer: {breakdown_type} {top_item} had the most with {top_count} homicides.**\n\n"
+                
+                # Show detailed breakdowns only if no primary_breakdown (i.e., no group_by used)
+                if not result.get('primary_breakdown') or not result['primary_breakdown'].get('data'):
+                    if result['year_breakdown']:
+                        response += f"**Year Breakdown:**\n"
+                        for year, count in sorted(result['year_breakdown'].items()):
+                            response += f"  {year}: {count} homicides\n"
+                        response += "\n"
+                    
+                    if result.get('ward_breakdown'):
+                        breakdown_size = len(result['ward_breakdown'])
+                        response += f"**Ward Breakdown (Top {breakdown_size}):**\n"
+                        sorted_wards = sorted(result['ward_breakdown'].items(), key=lambda x: x[1], reverse=True)
+                        for ward, count in sorted_wards:
+                            response += f"  Ward {ward}: {count} homicides\n"
+                        response += "\n"
+                    
+                    if result.get('district_breakdown'):
+                        breakdown_size = len(result['district_breakdown'])
+                        response += f"**District Breakdown (Top {breakdown_size}):**\n"
+                        sorted_districts = sorted(result['district_breakdown'].items(), key=lambda x: x[1], reverse=True)
+                        for district, count in sorted_districts:
+                            response += f"  District {district}: {count} homicides\n"
+                        response += "\n"
+                    
+                    if result.get('community_area_breakdown'):
+                        breakdown_size = len(result['community_area_breakdown'])
+                        response += f"**Community Area Breakdown (Top {breakdown_size}):**\n"
+                        sorted_cas = sorted(result['community_area_breakdown'].items(), key=lambda x: x[1], reverse=True)
+                        for ca, count in sorted_cas:
+                            response += f"  Community Area {ca}: {count} homicides\n"
+                        response += "\n"
+                
+                if result.get('top_locations'):
+                    response += f"**Top Locations:**\n"
+                    for location, count in list(result['top_locations'].items())[:3]:
+                        response += f"  {location}: {count} cases\n"
+                    response += "\n"
+                
+                if result['sample_records']:
+                    response += f"**Sample Records ({len(result['sample_records'])}):**\n"
+                    for i, record in enumerate(result['sample_records'][:3], 1):
+                        response += f"{i}. **Case {record['case_number']}** ({record['year']})\n"
+                        response += f"   Ward: {record['ward']}, District: {record['district']}\n"
+                        response += f"   Location: {record['block']}\n"
+                        response += f"   Arrest: {'Yes' if record['arrest'] else 'No'}\n\n"
+                
+                return response
+                
+            elif "year" in result and "records" in result:
                 # Year query result
                 response = f"📅 **Homicides in {result['year']}**\n"
                 response += f"Total records: {result['total_records']}\n"

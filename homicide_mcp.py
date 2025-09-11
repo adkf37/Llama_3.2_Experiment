@@ -174,85 +174,179 @@ class HomicideDataMCP:
                 
         except Exception as e:
             return {'error': f"Error getting IUCR information: {str(e)}"}
+    
+    def query_homicides_advanced(self, 
+                                start_year: Optional[int] = None,
+                                end_year: Optional[int] = None,
+                                ward: Optional[int] = None,
+                                district: Optional[int] = None,
+                                community_area: Optional[int] = None,
+                                arrest_status: Optional[bool] = None,
+                                domestic: Optional[bool] = None,
+                                location_type: Optional[str] = None,
+                                group_by: Optional[str] = None,
+                                top_n: int = 10,
+                                limit: int = 100) -> Dict[str, Any]:
+        """Advanced homicide query with multiple filter options."""
+        try:
+            df = self.df.copy()
+            filters_applied = []
+            
+            # Apply year range filter
+            if start_year is not None:
+                df = df[df['Year'] >= start_year]
+                filters_applied.append(f"start_year: {start_year}")
+            
+            if end_year is not None:
+                df = df[df['Year'] <= end_year]
+                filters_applied.append(f"end_year: {end_year}")
+            
+            # Apply geographical filters
+            if ward is not None:
+                df = df[pd.to_numeric(df['Ward'], errors='coerce') == ward]
+                filters_applied.append(f"ward: {ward}")
+            
+            if district is not None:
+                df = df[pd.to_numeric(df['District'], errors='coerce') == district]
+                filters_applied.append(f"district: {district}")
+            
+            if community_area is not None:
+                df = df[pd.to_numeric(df['Community Area'], errors='coerce') == community_area]
+                filters_applied.append(f"community_area: {community_area}")
+            
+            # Apply status filters
+            if arrest_status is not None:
+                df = df[df['Arrest'] == arrest_status]
+                filters_applied.append(f"arrest_status: {arrest_status}")
+            
+            if domestic is not None:
+                df = df[df['Domestic'] == domestic]
+                filters_applied.append(f"domestic: {domestic}")
+            
+            # Apply location type filter
+            if location_type is not None:
+                df = df[df['Location Description'].str.contains(location_type, case=False, na=False)]
+                filters_applied.append(f"location_type: {location_type}")
+            
+            # Calculate statistics
+            total_matches = len(df)
+            arrest_count = int(df['Arrest'].sum()) if len(df) > 0 else 0
+            domestic_count = int(df['Domestic'].sum()) if len(df) > 0 else 0
+            arrest_rate = (arrest_count / total_matches * 100) if total_matches > 0 else 0
+            domestic_rate = (domestic_count / total_matches * 100) if total_matches > 0 else 0
+            
+            # Get breakdown by year if multiple years
+            year_breakdown = {}
+            if total_matches > 0:
+                year_counts = df['Year'].value_counts().sort_index()
+                year_breakdown = {str(int(k)): int(v) for k, v in year_counts.items() if pd.notna(k)}
+            
+            # Get geographic breakdowns
+            ward_breakdown = {}
+            district_breakdown = {}
+            community_area_breakdown = {}
+            primary_breakdown = {}  # For group_by functionality
+            
+            if total_matches > 0:
+                # Ward breakdown
+                ward_counts = df['Ward'].value_counts().head(top_n)
+                ward_breakdown = {str(k): int(v) for k, v in ward_counts.items() if pd.notna(k) and str(k) != 'nan'}
+                
+                # District breakdown
+                district_counts = df['District'].value_counts().head(top_n)
+                district_breakdown = {str(k): int(v) for k, v in district_counts.items() if pd.notna(k) and str(k) != 'nan'}
+                
+                # Community area breakdown
+                ca_counts = df['Community Area'].value_counts().head(top_n)
+                community_area_breakdown = {str(k): int(v) for k, v in ca_counts.items() if pd.notna(k) and str(k) != 'nan'}
+                
+                # Handle group_by for focused results
+                if group_by:
+                    group_by_lower = group_by.lower()
+                    if group_by_lower in ['ward', 'wards']:
+                        primary_breakdown = {'type': 'ward', 'data': ward_breakdown}
+                    elif group_by_lower in ['district', 'districts']:
+                        primary_breakdown = {'type': 'district', 'data': district_breakdown}
+                    elif group_by_lower in ['community_area', 'community_areas', 'community area', 'community areas']:
+                        primary_breakdown = {'type': 'community_area', 'data': community_area_breakdown}
+                    elif group_by_lower in ['location', 'locations', 'block', 'blocks']:
+                        location_counts = df['Block'].value_counts().head(top_n)
+                        location_data = {str(k): int(v) for k, v in location_counts.items()}
+                        primary_breakdown = {'type': 'location', 'data': location_data}
+            
+            # Get top locations within filtered data
+            top_locations = {}
+            if total_matches > 0 and len(df) > 0:
+                location_counts = df['Block'].value_counts().head(5)
+                top_locations = {str(k): int(v) for k, v in location_counts.items()}
+            
+            # Sample records
+            sample_records = []
+            for _, row in df.head(min(limit, 10)).iterrows():
+                sample_records.append({
+                    'id': str(row.get('ID', '')),
+                    'case_number': str(row.get('Case Number', '')),
+                    'date': str(row.get('Date', '')),
+                    'year': int(row.get('Year', 0)) if pd.notna(row.get('Year')) else None,
+                    'block': str(row.get('Block', '')),
+                    'ward': str(row.get('Ward', '')),
+                    'district': str(row.get('District', '')),
+                    'community_area': str(row.get('Community Area', '')),
+                    'location_description': str(row.get('Location Description', '')),
+                    'arrest': bool(row.get('Arrest', False)),
+                    'domestic': bool(row.get('Domestic', False))
+                })
+            
+            return {
+                'total_matches': total_matches,
+                'filters_applied': filters_applied,
+                'arrest_count': arrest_count,
+                'arrest_rate': f"{arrest_rate:.1f}%",
+                'domestic_count': domestic_count,
+                'domestic_rate': f"{domestic_rate:.1f}%",
+                'year_breakdown': year_breakdown,
+                'ward_breakdown': ward_breakdown,
+                'district_breakdown': district_breakdown,
+                'community_area_breakdown': community_area_breakdown,
+                'primary_breakdown': primary_breakdown,
+                'top_locations': top_locations,
+                'sample_records_count': len(sample_records),
+                'sample_records': sample_records
+            }
+            
+        except Exception as e:
+            return {'error': f"Error in advanced query: {str(e)}"}
 
 def create_homicide_tools() -> List[Tool]:
     """Create the MCP tools for homicide data analysis."""
     return [
         Tool(
-            name="get_homicides_by_year",
-            description="Get homicide records for a specific year. Returns detailed information about homicides that occurred in the specified year.",
+            name="query_homicides_advanced",
+            description="Query homicide data with flexible filtering options for all data analysis needs (years, ranges, geography, arrests, domestic, location types).",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "year": {
-                        "type": "integer", 
-                        "description": "Year to query (e.g., 2023, 2022, 2021, etc.)",
-                        "minimum": 2001,
-                        "maximum": 2024
-                    },
-                    "limit": {
-                        "type": "integer", 
-                        "description": "Maximum number of records to return (default: 100)",
-                        "default": 100,
-                        "minimum": 1,
-                        "maximum": 1000
-                    }
-                },
-                "required": ["year"]
-            }
-        ),
-        Tool(
-            name="get_homicide_statistics",
-            description="Get comprehensive statistical analysis of homicide data including trends, arrest rates, and geographical distribution.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "start_year": {
-                        "type": "integer", 
-                        "description": "Start year for analysis (optional)",
-                        "minimum": 2001,
-                        "maximum": 2024
-                    },
-                    "end_year": {
-                        "type": "integer", 
-                        "description": "End year for analysis (optional)",
-                        "minimum": 2001,
-                        "maximum": 2024
-                    }
+                    "start_year": {"type": "integer", "description": "Start year for date range", "minimum": 2001, "maximum": 2024},
+                    "end_year": {"type": "integer", "description": "End year for date range", "minimum": 2001, "maximum": 2024},
+                    "ward": {"type": "integer", "description": "Ward number (1-50)", "minimum": 1, "maximum": 50},
+                    "district": {"type": "integer", "description": "Police district (1-25)", "minimum": 1, "maximum": 25},
+                    "community_area": {"type": "integer", "description": "Community area (1-77)", "minimum": 1, "maximum": 77},
+                    "arrest_status": {"type": "boolean", "description": "true for arrests made, false for no arrests"},
+                    "domestic": {"type": "boolean", "description": "true for domestic cases, false otherwise"},
+                    "location_type": {"type": "string", "description": "Location type or keyword (e.g., 'STREET', 'APARTMENT')"},
+                    "group_by": {"type": "string", "description": "Focus results on specific grouping: 'ward', 'district', 'community_area', or 'location'. Use for 'which X had the most' queries."},
+                    "top_n": {"type": "integer", "description": "Number of items to show in breakdowns (default 10)", "default": 10, "minimum": 1, "maximum": 50},
+                    "limit": {"type": "integer", "description": "Max sample records to include (default 100)", "default": 100, "minimum": 1, "maximum": 1000}
                 }
             }
         ),
         Tool(
-            name="search_by_location",
-            description="Search homicides by location including street names, neighborhoods, or location types (e.g., 'STREET', 'APARTMENT', 'KEDZIE').",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "location_query": {
-                        "type": "string", 
-                        "description": "Location to search for. Can be a street name (e.g., 'KEDZIE'), location type (e.g., 'STREET', 'APARTMENT'), or any location-related keyword."
-                    },
-                    "limit": {
-                        "type": "integer", 
-                        "description": "Maximum number of records to return (default: 50)",
-                        "default": 50,
-                        "minimum": 1,
-                        "maximum": 500
-                    }
-                },
-                "required": ["location_query"]
-            }
-        ),
-        Tool(
             name="get_iucr_info",
-            description="Get information about IUCR (Illinois Uniform Crime Reporting) codes. IUCR codes classify different types of crimes in Illinois.",
+            description="Get information about IUCR codes (overview or details for a specific code).",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "iucr_code": {
-                        "type": "string", 
-                        "description": "Specific IUCR code to look up (optional, e.g., '0110'). If not provided, returns overview of IUCR system."
-                    }
+                    "iucr_code": {"type": "string", "description": "Specific IUCR code to look up (optional)"}
                 }
             }
         )
@@ -269,20 +363,20 @@ def handle_tool_call(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any
         return {"error": "Homicide data not loaded"}
     
     try:
-        if tool_name == "get_homicides_by_year":
-            year = arguments.get("year")
-            limit = arguments.get("limit", 100)
-            return homicide_data.get_records_by_year(year, limit)
-            
-        elif tool_name == "get_homicide_statistics":
-            start_year = arguments.get("start_year")
-            end_year = arguments.get("end_year")
-            return homicide_data.get_statistics(start_year, end_year)
-            
-        elif tool_name == "search_by_location":
-            location_query = arguments.get("location_query")
-            limit = arguments.get("limit", 50)
-            return homicide_data.search_by_location(location_query, limit)
+        if tool_name == "query_homicides_advanced":
+            return homicide_data.query_homicides_advanced(
+                start_year=arguments.get("start_year"),
+                end_year=arguments.get("end_year"),
+                ward=arguments.get("ward"),
+                district=arguments.get("district"),
+                community_area=arguments.get("community_area"),
+                arrest_status=arguments.get("arrest_status"),
+                domestic=arguments.get("domestic"),
+                location_type=arguments.get("location_type"),
+                group_by=arguments.get("group_by"),
+                top_n=arguments.get("top_n", 10),
+                limit=arguments.get("limit", 100)
+            )
             
         elif tool_name == "get_iucr_info":
             iucr_code = arguments.get("iucr_code")
