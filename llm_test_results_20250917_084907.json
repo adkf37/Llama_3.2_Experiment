@@ -1,0 +1,325 @@
+{
+  "test_suite_version": "1.0",
+  "timestamp": "2025-09-17T07:35:03.459351",
+  "models_tested": [
+    {
+      "model": "qwen3:8b",
+      "timestamp": "2025-09-17T07:35:03.808483",
+      "categories": {
+        "simple_queries": [
+          {
+            "question": "How many homicides in 2023?",
+            "complexity": "simple",
+            "passed": false,
+            "response_time": 161.46991658210754,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "<think>\nOkay, let me try to figure out how to answer the question \"How many homicides in 2023?\" based on the provided data.\n\nFirst, I'll look through the information given. The user mentioned an Advan..."
+          },
+          {
+            "question": "What does IUCR mean?",
+            "complexity": "simple",
+            "passed": true,
+            "response_time": 109.39318895339966,
+            "tool_called": "success",
+            "parameters_used": {},
+            "issues": [],
+            "response": "<think>\nOkay, so the user asked, \"What does IUCR mean?\" and provided some data about homicides. Let me look through that data again.\n\nThe data mentions the IUCR System Overview, stating it's the Illin..."
+          }
+        ],
+        "which_x_most_queries": [
+          {
+            "question": "Which ward had the most homicides in 2013?",
+            "complexity": "medium",
+            "passed": false,
+            "response_time": 484.38239336013794,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "<think>\nOkay, let's see. The user is asking which ward had the most homicides in 2013. I need to look at the provided data to find the answer.\n\nFirst, there's the summary section that mentions total m..."
+          },
+          {
+            "question": "What district had the most homicides from 2020 to 2022?",
+            "complexity": "medium",
+            "passed": false,
+            "response_time": 175.05811285972595,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "<think>\nOkay, so I need to figure out which district had the most homicides between 2020 and 2022 based on the given data. Let me start by reading through the information provided carefully.\n\nFirst, t..."
+          }
+        ],
+        "top_n_queries": [
+          {
+            "question": "Show me the top 3 districts with the most homicides from 2020 to 2022",
+            "complexity": "medium",
+            "passed": false,
+            "response_time": 123.88046288490295,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "<think>\nOkay, so the user is asking for the top three districts with the most homicides between 2020 and 2022. Let me check the data provided.\n\nLooking at the District Breakdown section, it's ranked b..."
+          }
+        ],
+        "complex_multi_criteria": [
+          {
+            "question": "What are the top 2 wards with the most homicides where no arrests were made?",
+            "complexity": "complex",
+            "passed": false,
+            "response_time": 123.42748808860779,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "<think>\nOkay, let's tackle this question. The user wants to know the top two wards with the most homicides where no arrests were made. \n\nFirst, I need to look at the data provided. The summary says th..."
+          },
+          {
+            "question": "Show me the top 5 community areas with domestic homicides",
+            "complexity": "complex",
+            "passed": false,
+            "response_time": 129.41381573677063,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "<think>\nOkay, let's see. The user wants the top 5 community areas with domestic homicides based on the provided data.\n\nLooking at the Community Area Breakdown section, it's already ranked by count. Th..."
+          }
+        ]
+      },
+      "overall_score": 14.285714285714285,
+      "total_tests": 7,
+      "passed_tests": 1,
+      "errors": []
+    },
+    {
+      "model": "gemma3:12b",
+      "timestamp": "2025-09-17T07:56:51.137110",
+      "categories": {
+        "simple_queries": [
+          {
+            "question": "How many homicides in 2023?",
+            "complexity": "simple",
+            "passed": false,
+            "response_time": 118.66350412368774,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "Based on the provided data, there were **340 homicides in 2023**. This is stated directly in the \"Year Breakdown\" section of the summary."
+          },
+          {
+            "question": "What does IUCR mean?",
+            "complexity": "simple",
+            "passed": true,
+            "response_time": 74.46544361114502,
+            "tool_called": "success",
+            "parameters_used": {},
+            "issues": [],
+            "response": "According to the provided data, IUCR stands for **Illinois Uniform Crime Reporting**. It's a standardized system used by law enforcement agencies in Illinois to classify and report crimes."
+          }
+        ],
+        "which_x_most_queries": [
+          {
+            "question": "Which ward had the most homicides in 2013?",
+            "complexity": "medium",
+            "passed": false,
+            "response_time": 116.57091975212097,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "Based on the provided data, **Ward 16.0 and Ward 24.0** both had the most homicides in 2013, with **27** homicides each."
+          },
+          {
+            "question": "What district had the most homicides from 2020 to 2022?",
+            "complexity": "medium",
+            "passed": false,
+            "response_time": 120.72689652442932,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "Based on the provided data, **District 11.0 had the most homicides from 2020 to 2022, with a total of 284 cases.**"
+          }
+        ],
+        "top_n_queries": [
+          {
+            "question": "Show me the top 3 districts with the most homicides from 2020 to 2022",
+            "complexity": "medium",
+            "passed": false,
+            "response_time": 111.07703304290771,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "Here are the top 3 districts with the most homicides from 2020 to 2022, based on the provided data:\n\n1. **District 11.0:** 284 homicides\n2. **District 6.0:** 224 homicides\n3. **District 7.0:** 185 hom..."
+          }
+        ],
+        "complex_multi_criteria": [
+          {
+            "question": "What are the top 2 wards with the most homicides where no arrests were made?",
+            "complexity": "complex",
+            "passed": false,
+            "response_time": 69.06666493415833,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "❌ Could not parse tool call from response: TOOL_CALL: {\"name\": \"query_homicides_advanced\", \"arguments\": {\"start_year\": 2015, \"end_year\": 2023, \"arrest_status\": False, \"group_by\": \"ward\", \"top_n\": 2}}"
+          },
+          {
+            "question": "Show me the top 5 community areas with domestic homicides",
+            "complexity": "complex",
+            "passed": false,
+            "response_time": 10.857884645462036,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "❌ Could not parse tool call from response: TOOL_CALL: {\"name\": \"query_homicides_advanced\", \"arguments\": {\"domestic\": True, \"group_by\": \"community_area\", \"top_n\": 5}}"
+          }
+        ]
+      },
+      "overall_score": 14.285714285714285,
+      "total_tests": 7,
+      "passed_tests": 1,
+      "errors": []
+    },
+    {
+      "model": "llama3.2:3b",
+      "timestamp": "2025-09-17T08:07:12.975836",
+      "categories": {
+        "simple_queries": [
+          {
+            "question": "How many homicides in 2023?",
+            "complexity": "simple",
+            "passed": false,
+            "response_time": 39.457342863082886,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "According to the data provided, there were 340 homicides in 2023."
+          },
+          {
+            "question": "What does IUCR mean?",
+            "complexity": "simple",
+            "passed": true,
+            "response_time": 18.491069555282593,
+            "tool_called": "success",
+            "parameters_used": {},
+            "issues": [],
+            "response": "Based on the provided data, I can provide an informed answer.\n\nThe term \"IUCR\" stands for Illinois Uniform Crime Reporting, which is a standardized system used by law enforcement agencies in Illinois ..."
+          }
+        ],
+        "which_x_most_queries": [
+          {
+            "question": "Which ward had the most homicides in 2013?",
+            "complexity": "medium",
+            "passed": false,
+            "response_time": 24.443917512893677,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "Based on the provided data, Ward 16.0 had the most homicides with 27 cases in 2013."
+          },
+          {
+            "question": "What district had the most homicides from 2020 to 2022?",
+            "complexity": "medium",
+            "passed": false,
+            "response_time": 29.193774223327637,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "The district with the most homicides between 2020 and 2022 is District 11.0, with a total of 284 homicides."
+          }
+        ],
+        "top_n_queries": [
+          {
+            "question": "Show me the top 3 districts with the most homicides from 2020 to 2022",
+            "complexity": "medium",
+            "passed": false,
+            "response_time": 26.26939368247986,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "Based on the provided data, here are the top 3 districts with the most homicides from 2020 to 2022:\n\n1. **District 11.0**: With 284 homicides, this district had the highest number of homicides during ..."
+          }
+        ],
+        "complex_multi_criteria": [
+          {
+            "question": "What are the top 2 wards with the most homicides where no arrests were made?",
+            "complexity": "complex",
+            "passed": false,
+            "response_time": 2344.024244070053,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "Based on the provided data, there is no information about the specific wards or their corresponding homicide counts. The data only provides a summary of all matches, arrests made, and domestic cases.\n..."
+          },
+          {
+            "question": "Show me the top 5 community areas with domestic homicides",
+            "complexity": "complex",
+            "passed": false,
+            "response_time": 32.882643938064575,
+            "tool_called": null,
+            "parameters_used": {},
+            "issues": [
+              "No clear tool call result detected"
+            ],
+            "response": "Based on the provided data, here are the top 5 community areas with domestic homicides:\n\n1. Community Area 25.0: 56 homicides\n2. Community Area 29.0: 41 homicides\n3. Community Area 49.0: 39 homicides\n..."
+          }
+        ]
+      },
+      "overall_score": 14.285714285714285,
+      "total_tests": 7,
+      "passed_tests": 1,
+      "errors": []
+    }
+  ],
+  "summary": {
+    "best_model": "qwen3:8b",
+    "worst_model": "llama3.2:3b",
+    "average_score": 14.285714285714285,
+    "models_by_score": [
+      [
+        "qwen3:8b",
+        14.285714285714285
+      ],
+      [
+        "gemma3:12b",
+        14.285714285714285
+      ],
+      [
+        "llama3.2:3b",
+        14.285714285714285
+      ]
+    ]
+  }
+}

@@ -17,6 +17,9 @@ import argparse
 import mcp
 from mcp import Tool
 
+# Import data fetcher
+from chicago_data_fetcher import ChicagoHomicideDataFetcher
+
 class HomicideDataMCP:
     """MCP Server for Chicago Homicide Data Analysis."""
     
@@ -185,8 +188,8 @@ class HomicideDataMCP:
                                 domestic: Optional[bool] = None,
                                 location_type: Optional[str] = None,
                                 group_by: Optional[str] = None,
-                                top_n: int = 10,
-                                limit: int = 100) -> Dict[str, Any]:
+                                top_n: int = 1000,
+                                limit: int = 1000) -> Dict[str, Any]:
         """Advanced homicide query with multiple filter options."""
         try:
             df = self.df.copy()
@@ -282,7 +285,7 @@ class HomicideDataMCP:
             
             # Sample records
             sample_records = []
-            for _, row in df.head(min(limit, 10)).iterrows():
+            for _, row in df.head(limit).iterrows():
                 sample_records.append({
                     'id': str(row.get('ID', '')),
                     'case_number': str(row.get('Case Number', '')),

@@ -19,8 +19,22 @@ class LlamaClient:
     def _check_model_availability(self) -> bool:
         """Check if the specified model is available locally."""
         try:
-            models = self.client.list()
-            available_models = [model['name'] for model in models['models']]
+            models_response = self.client.list()
+            print(f"🔍 Debug: models response structure: {models_response}")  # Add debug line
+            
+            # Handle the ListResponse object from Ollama
+            if hasattr(models_response, 'models'):
+                # Extract model names from the Model objects
+                available_models = [model.model for model in models_response.models]
+            else:
+                print(f"🔍 Debug: Unexpected models structure: {type(models_response)}")
+                return False
+            
+            # Filter out empty names
+            available_models = [name for name in available_models if name]
+            
+            print(f"🔍 Available models: {available_models}")  # Add debug line
+            print(f"🔍 Looking for: {self.model_name}")  # Add debug line
             
             if self.model_name not in available_models:
                 print(f"⚠️  Model {self.model_name} not found. Available models:")
@@ -31,6 +45,7 @@ class LlamaClient:
             return True
         except Exception as e:
             print(f"❌ Error checking model availability: {e}")
+            print(f"🔍 Debug: Exception type: {type(e)}")  # Add debug line
             return False
 
     def generate_with_tools(self, prompt: str, tools: List[Dict[str, Any]], 

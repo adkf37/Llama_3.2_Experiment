@@ -1,6 +1,6 @@
 # Model Configuration
 model:
-  name: "qwen3:8b"
+  name: "deepseek-r1:1.5b"
   temperature: 0.7
   top_p: 0.9
   max_tokens: 2048

@@ -1,0 +1,103 @@
+# Model Configuration for LLM Testing
+# Add models you want to test and their expected characteristics
+
+models:
+  # Llama 3.2 family
+
+  "llama3.2:3b":
+    size: "2.0GB" 
+    params: "3B"
+    expected_performance: "good"
+    notes: "Good balance of speed and capability"
+    
+  # Gemma family  
+  "gemma3:270m":
+    size: ""
+    params: "270M"
+    expected_performance: "basic"
+    notes: "Small but efficient"
+    
+  "gemma3:12b":
+    size: "5.4GB"
+    params: "12B" 
+    expected_performance: "excellent"
+    notes: "Large, should be very capable"
+
+  # Mistral family
+  "mistral:latest":
+    size: ""
+    params: ""
+    expected_performance: "good"
+    notes: "Well-known for following instructions"
+
+  # Qwen family
+  "qwen3:8b":
+    size: "" 
+    params: "8B"
+    expected_performance: "good"
+    notes: "Good multilingual model"
+    
+
+
+# Performance expectations by model size
+size_categories:
+  small: # 1-3B parameters
+    - "llama3.2:1b"
+    - "gemma2:2b"
+    - "llama3.2:3b"
+    expected_issues:
+      - "May struggle with complex JSON generation"
+      - "Might confuse similar tool parameters"
+      - "Could fail on multi-step reasoning"
+    
+  medium: # 4-8B parameters  
+    - "mistral:7b"
+    - "qwen2.5:7b" 
+    - "phi3:mini"
+    - "llama3.1:8b"
+    expected_performance:
+      - "Should handle basic tool calls well"
+      - "Good instruction following"
+      - "May occasionally make parameter errors"
+      
+  large: # 9B+ parameters
+    - "gemma2:9b"
+    - "mistral-nemo"
+    - "qwen2.5:14b"
+    - "phi3:medium"
+    expected_performance:
+      - "Should excel at complex tool calls"
+      - "Excellent instruction following"
+      - "Minimal parameter errors"
+
+# Test scenarios by complexity
+test_complexity:
+  simple:
+    description: "Single tool, clear parameters"
+    examples:
+      - "How many homicides in 2023?"
+      - "What does IUCR mean?"
+    expected_success_rate: 
+      small: 80
+      medium: 95
+      large: 98
+      
+  medium:
+    description: "Tool selection with specific parameters"  
+    examples:
+      - "Which ward had the most homicides in 2013?"
+      - "Top 3 districts from 2020-2022"
+    expected_success_rate:
+      small: 60
+      medium: 85
+      large: 95
+      
+  complex:
+    description: "Multiple parameters, nuanced understanding"
+    examples:
+      - "Top 2 wards with no arrests made"
+      - "Community areas with domestic homicides"
+    expected_success_rate:
+      small: 40
+      medium: 70
+      large: 90
