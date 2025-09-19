@@ -6,9 +6,11 @@ Tests different models on various query types and complexity levels.
 
 import json
 import time
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any
 from datetime import datetime
 from pathlib import Path
+
+import yaml
 
 from llama_client import LlamaClient
 from intelligent_mcp import intelligent_mcp
@@ -18,14 +20,7 @@ class LLMPerformanceTester:
     
     def __init__(self):
         self.test_results = []
-        self.models_to_test = [
-            "llama3.2:3b",
-            "gemma3:12b",
-            "gemma3:270M"
-            "mistral:latest",
-            "qwen3:8b",
-            # Add more models as available
-        ]
+        self.models_to_test = self._load_models_from_config()
         
         # Test cases organized by complexity and type
         self.test_cases = {
@@ -91,6 +86,28 @@ class LLMPerformanceTester:
             ]
         }
     
+    def _load_models_from_config(self) -> List[str]:
+        """Load model names from model_configs.yaml for consistent evaluation."""
+        config_path = Path("model_configs.yaml")
+        if config_path.exists():
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config_data = yaml.safe_load(f) or {}
+                models_section = config_data.get("models", {})
+                if isinstance(models_section, dict) and models_section:
+                    return list(models_section.keys())
+            except Exception as e:
+                print(f"⚠️  Could not load models from configuration: {e}")
+
+        # Fallback to a sensible default list
+        return [
+            "llama3.2:3b",
+            "gemma3:12b",
+            "gemma3:270m",
+            "mistral:latest",
+            "qwen3:8b"
+        ]
+
     def test_model(self, model_name: str) -> Dict[str, Any]:
         """Test a specific model against all test cases."""
         print(f"\n🧪 Testing model: {model_name}")
@@ -156,29 +173,89 @@ class LLMPerformanceTester:
             "parameters_used": {},
             "issues": []
         }
-        
+
         try:
             # Generate response using the intelligent MCP handler
-            response = intelligent_mcp.handle_question_with_tools(
-                test_case["question"], client
+            interaction = intelligent_mcp.handle_question_with_tools(
+                test_case["question"],
+                client,
+                include_trace=True
             )
-            
+
             result["response_time"] = time.time() - start_time
-            result["response"] = response[:200] + "..." if len(response) > 200 else response
-            
-            # Check if it appears a successful tool call was made
-            if "Advanced Homicide Query Results" in response or "IUCR" in response:
-                result["tool_called"] = "success"
-                result["passed"] = True
-            else:
-                result["issues"].append("No clear tool call result detected")
-            
-            # Additional validation could be added here to check specific parameters
-            
+
+            if not isinstance(interaction, dict):
+                # Unexpected fallback scenario
+                response_text = str(interaction)
+                result["response"] = response_text[:200] + "..." if len(response_text) > 200 else response_text
+                result["issues"].append("Trace information unavailable")
+                return result
+
+            final_answer = interaction.get("final_answer", "") or ""
+            result["response"] = final_answer[:200] + "..." if len(final_answer) > 200 else final_answer
+            result["trace"] = interaction
+
+            expected_tool = test_case.get("expected_tool")
+            tool_call = interaction.get("tool_call") or {}
+            tool_execution = interaction.get("tool_execution") or {}
+
+            result["tool_called"] = tool_call.get("name") if isinstance(tool_call, dict) else None
+            result["parameters_used"] = tool_call.get("arguments", {}) if isinstance(tool_call, dict) else {}
+            result["tool_latency"] = tool_execution.get("latency_seconds")
+
+            if expected_tool and result["tool_called"] != expected_tool:
+                result["issues"].append(
+                    f"Expected tool '{expected_tool}' but model called '{result['tool_called']}'"
+                )
+
+            if expected_tool and not interaction.get("needs_tool_call", False):
+                result["issues"].append("Model did not request tool usage")
+
+            # Validate required parameters
+            expected_params = test_case.get("expected_params", [])
+            for param in expected_params:
+                if param not in result["parameters_used"]:
+                    result["issues"].append(f"Missing expected parameter '{param}'")
+
+            # Specific value checks
+            expected_group_by = test_case.get("expected_group_by")
+            if expected_group_by is not None:
+                group_value = result["parameters_used"].get("group_by")
+                if group_value != expected_group_by:
+                    result["issues"].append(
+                        f"Expected group_by '{expected_group_by}' but got '{group_value}'"
+                    )
+
+            if "expected_top_n" in test_case:
+                top_n_value = result["parameters_used"].get("top_n")
+                if top_n_value != test_case["expected_top_n"]:
+                    result["issues"].append(
+                        f"Expected top_n {test_case['expected_top_n']} but got {top_n_value}"
+                    )
+
+            if "expected_arrest_status" in test_case:
+                arrest_value = result["parameters_used"].get("arrest_status")
+                if arrest_value != test_case["expected_arrest_status"]:
+                    result["issues"].append(
+                        f"Expected arrest_status {test_case['expected_arrest_status']} but got {arrest_value}"
+                    )
+
+            if "expected_domestic" in test_case:
+                domestic_value = result["parameters_used"].get("domestic")
+                if domestic_value != test_case["expected_domestic"]:
+                    result["issues"].append(
+                        f"Expected domestic {test_case['expected_domestic']} but got {domestic_value}"
+                    )
+
+            if expected_tool and tool_execution.get("error"):
+                result["issues"].append(f"Tool execution error: {tool_execution.get('error')}")
+
+            result["passed"] = len(result["issues"]) == 0
+
         except Exception as e:
             result["error"] = str(e)
             result["response_time"] = time.time() - start_time
-        
+
         return result
     
     def run_all_tests(self) -> Dict[str, Any]:

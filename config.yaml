@@ -33,3 +33,7 @@ knowledge:
   base_directory: "./knowledge_base"
   supported_formats: [".txt", ".md", ".pdf", ".csv"]
   auto_ingest: false
+
+# Prompt Settings
+prompts:
+  system_prompt_variant: "tool_use_reasoned"

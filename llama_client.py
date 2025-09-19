@@ -2,6 +2,7 @@ import ollama
 from ollama._types import Options
 from typing import List, Dict, Any, Optional, Union, cast
 from config import config
+from prompt_registry import build_tool_system_prompt
 import json
 
 class LlamaClient:
@@ -10,6 +11,7 @@ class LlamaClient:
     def __init__(self, model_name: Optional[str] = None):
         self.config = config
         self.model_name = model_name or self.config.get('model.name', 'llama3.2:3b')
+        self.system_prompt_variant = self.config.get('prompts.system_prompt_variant', 'tool_use_v1')
         self.client = ollama.Client()
         
         # Check if model is available
@@ -55,39 +57,7 @@ class LlamaClient:
         temperature = temperature or self.config.get('model.temperature', 0.7)
         max_tokens = max_tokens or self.config.get('model.max_tokens', 2048)
         
-        # Create system prompt that explains available tools
-        tools_desc = []
-        for tool in tools:
-            params = tool.get("parameters", {})
-            required = tool.get("required", [])
-            param_desc = ", ".join([f"{k}: {v.get('description', k)}" for k, v in params.items()])
-            tools_desc.append(f"- {tool['name']}({param_desc}): {tool['description']}")
-
-        system_prompt = f"""You are an assistant that can use tools to answer questions about homicide data. 
-
-Available tools:
-{chr(10).join(tools_desc)}
-
-When you need data to answer a question, respond with a tool call in this exact format:
-TOOL_CALL: {{"name": "tool_name", "arguments": {{"arg": "value"}}}}
-
-Examples:
-- "How many homicides in 2023?" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{"start_year": 2023, "end_year": 2023}}}}
-- "What are the overall statistics?" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{}}}}
-- "Which ward had the most homicides in 2013?" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{"start_year": 2013, "end_year": 2013, "group_by": "ward"}}}}
-- "What district had the most homicides from 2020-2022?" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{"start_year": 2020, "end_year": 2022, "group_by": "district"}}}}
-- "Show top 5 community areas with homicides" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{"group_by": "community_area", "top_n": 5}}}}
-- "Find domestic violence homicides on streets" → TOOL_CALL: {{"name": "query_homicides_advanced", "arguments": {{"domestic": true, "location_type": "STREET"}}}}
-- "What does IUCR mean?" → TOOL_CALL: {{"name": "get_iucr_info", "arguments": {{}}}}
-
-Use query_homicides_advanced for ALL data analysis. Use get_iucr_info ONLY for IUCR code explanations.
-
-IMPORTANT: For "which X had the most" or "top X" questions, ALWAYS use group_by parameter:
-- "which ward" → group_by: "ward"
-- "which district" → group_by: "district"  
-- "which community area" → group_by: "community_area"
-- "which location" → group_by: "location"
-If you don't need tools, just answer normally."""
+        system_prompt = build_tool_system_prompt(self.system_prompt_variant, tools)
 
         messages = [
             {"role": "system", "content": system_prompt},

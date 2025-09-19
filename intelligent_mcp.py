@@ -1,6 +1,7 @@
 import json
 import re
-from typing import Dict, Any, Optional
+import time
+from typing import Dict, Any, Optional, Union
 import mcp_integration
 
 class IntelligentMCPHandler:
@@ -130,59 +131,99 @@ class IntelligentMCPHandler:
                 
             return None
     
-    def execute_tool_call(self, tool_call: Dict[str, Any]) -> str:
-        """Execute a tool call and return the result."""
+    def execute_tool_call(self, tool_call: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a tool call and return structured execution details."""
         tool_name = tool_call.get("name")
         arguments = tool_call.get("arguments", {})
-        
+
+        execution_summary = {
+            "tool_name": tool_name,
+            "arguments": arguments,
+            "raw_result": None,
+            "formatted_result": None,
+            "error": None
+        }
+
         if not tool_name or tool_name not in [tool["name"] for tool in self.tools]:
-            return f"❌ Unknown tool: {tool_name}"
-        
+            execution_summary["error"] = f"Unknown tool: {tool_name}"
+            execution_summary["formatted_result"] = f"❌ Unknown tool: {tool_name}"
+            return execution_summary
+
         try:
-            from mcp_integration import MCPIntegration
-            mcp = MCPIntegration()
-            result = mcp.call_tool(str(tool_name), arguments)
-            
-            # Format the result for display
+            mcp_instance = getattr(mcp_integration, "mcp_integration", None)
+            if mcp_instance is None:
+                mcp_instance = mcp_integration.MCPIntegration()
+            result = mcp_instance.call_tool(str(tool_name), arguments)
+            execution_summary["raw_result"] = result
+
             if isinstance(result, dict) and "error" in result:
-                return f"❌ {result['error']}"
+                execution_summary["error"] = result["error"]
+                execution_summary["formatted_result"] = f"❌ {result['error']}"
             else:
-                return mcp.format_tool_result(result)
+                execution_summary["formatted_result"] = mcp_instance.format_tool_result(result)
+
         except Exception as e:
-            return f"❌ Error executing tool {tool_name}: {e}"
-    
-    def handle_question_with_tools(self, question: str, llama_client) -> str:
+            execution_summary["error"] = str(e)
+            execution_summary["formatted_result"] = f"❌ Error executing tool {tool_name}: {e}"
+
+        return execution_summary
+
+    def handle_question_with_tools(
+        self,
+        question: str,
+        llama_client,
+        include_trace: bool = False
+    ) -> Union[str, Dict[str, Any]]:
         """Handle a question that might require tool calling."""
         print("🔍 Generating response with tool calling capability...")
-        
+
         # First, ask the LLM if it needs to use tools
         response = llama_client.generate_with_tools(question, self.tools)
         print(f"🤖 LLM Response: {response.get('content', 'No content')[:200]}...")
         print(f"🔧 Needs tool call: {response.get('needs_tool_call', False)}")
-        
+
+        interaction_trace: Dict[str, Any] = {
+            "question": question,
+            "initial_model_response": response,
+            "needs_tool_call": response.get("needs_tool_call", False),
+            "tool_call": None,
+            "tool_execution": None,
+            "final_answer": None
+        }
+
         if not response.get("needs_tool_call", False):
             # No tool call needed, return the direct response
             print("ℹ️  No tool call needed, returning direct response")
-            return response["content"]
-        
+            interaction_trace["final_answer"] = response["content"]
+            return interaction_trace if include_trace else response["content"]
+
         # Parse and execute tool call
         print("🔍 Parsing tool call from response...")
         tool_call = self.parse_tool_call(response["content"])
         if not tool_call:
             error_msg = f"❌ Could not parse tool call from response: {response['content']}"
             print(error_msg)
-            return error_msg
-        
+            interaction_trace["final_answer"] = error_msg
+            return interaction_trace if include_trace else error_msg
+
         print(f"🔧 Calling tool: {tool_call['name']} with args: {tool_call.get('arguments', {})}")
-        
+        interaction_trace["tool_call"] = tool_call
+
         # Execute the tool
-        tool_result = self.execute_tool_call(tool_call)
-        print(f"📊 Tool result (first 200 chars): {str(tool_result)[:200]}...")
-        
+        tool_start = time.perf_counter()
+        tool_execution = self.execute_tool_call(tool_call)
+        tool_execution["latency_seconds"] = time.perf_counter() - tool_start
+        interaction_trace["tool_execution"] = tool_execution
+        print(f"📊 Tool result (first 200 chars): {str(tool_execution.get('formatted_result', ''))[:200]}...")
+
+        if tool_execution.get("error"):
+            interaction_trace["final_answer"] = tool_execution.get("formatted_result")
+            return interaction_trace if include_trace else tool_execution.get("formatted_result")
+
         # Now ask the LLM to formulate a final answer based on the tool result
         follow_up_prompt = f"""Based on this data about homicides:
 
-{tool_result}
+{tool_execution['formatted_result']}
 
 Please answer the original question: "{question}"
 
@@ -191,7 +232,8 @@ Provide a clear, informative answer based on the data."""
         print("🔍 Generating final response based on tool result...")
         final_response = llama_client.generate(follow_up_prompt)
         print("✅ Final response generated")
-        return final_response
+        interaction_trace["final_answer"] = final_response
+        return interaction_trace if include_trace else final_response
 
 # Global instance
 intelligent_mcp = IntelligentMCPHandler()
