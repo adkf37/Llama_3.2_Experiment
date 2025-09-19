@@ -4,10 +4,10 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-This is a Local LLM system with Model Context Protocol (MCP) integration for intelligent homicide data analysis. The system combines a local Ollama LLM with MCP tools to enable natural language querying of Chicago homicide data from 2001 to present.
+This system uses Google's Gemini 1.5 Pro API together with Model Context Protocol (MCP) tools for intelligent homicide data analysis. It enables natural language querying of Chicago homicide data from 2001 to present while automatically calling structured tools when needed.
 
 **Key Architecture:**
-- Local LLM via Ollama (no external API calls)
+- Gemini Pro via Google Generative AI API
 - MCP-based tool calling system for structured data analysis
 - Intelligent question detection and tool routing
 - Chicago homicide dataset with 12,657+ records
@@ -19,12 +19,11 @@ This is a Local LLM system with Model Context Protocol (MCP) integration for int
 # Install dependencies
 pip install -r requirements.txt
 
-# Run automated setup (installs deps, checks Ollama, pulls model)
+# Run automated setup (installs deps, verifies API key)
 python setup.py
 
-# Check if model is available/pull model manually
-ollama pull llama3.2:3b
-# Alternative models: gemma2:9b, mistral:7b, qwen3:8b
+# Ensure Google API key is exported before running
+$Env:GOOGLE_API_KEY="your_key"
 ```
 
 ### Running the Application
@@ -35,7 +34,7 @@ python main.py
 # Ask a single question via command line
 python main.py --question "What location had the most homicides?"
 
-# Run in setup mode to verify model availability
+# Run in setup mode to verify configuration
 python main.py --setup
 ```
 
@@ -52,7 +51,8 @@ python mcp_integration.py
 ```powershell
 # Configuration is managed via config.yaml
 # Key settings:
-# - model.name: Ollama model to use
+# - model.name: Gemini model to use (default: gemini-1.5-pro-latest)
+# - model.api_key_env: Environment variable containing the Gemini key
 # - model.temperature: Response creativity (0.0-2.0)
 # - model.max_tokens: Maximum response length
 ```
@@ -64,7 +64,7 @@ python mcp_integration.py
 2. **`intelligent_mcp.py`** - Intelligent MCP handler that parses LLM responses and routes tool calls
 3. **`mcp_integration.py`** - MCP protocol implementation and tool management layer
 4. **`homicide_mcp.py`** - Core data analysis engine with Chicago homicide dataset tools
-5. **`llama_client.py`** - Ollama client wrapper with tool calling capabilities
+5. **`llama_client.py`** - Gemini client wrapper with tool calling capabilities
 6. **`config.py`** - Configuration management system using YAML
 
 ### MCP Tool System
@@ -144,17 +144,17 @@ The system automatically detects homicide-related questions using keyword analys
 ### Model Configuration (`config.yaml`)
 ```yaml
 model:
-  name: "llama3.2:3b"        # Ollama model name
-  temperature: 0.7           # Response creativity
-  max_tokens: 2048          # Max response length
-  top_p: 0.9                # Nucleus sampling
-  context_window: 8192      # Model context size
+  name: "gemini-1.5-pro-latest"  # Gemini model name
+  temperature: 0.7               # Response creativity
+  max_tokens: 2048              # Max response length
+  top_p: 0.9                    # Nucleus sampling
+  api_key_env: "GOOGLE_API_KEY" # Environment variable with API key
 ```
 
 ### Recommended Models by Use Case
-- **Development/Testing:** `llama3.2:3b` (fast, good balance)
-- **Production/Quality:** `gemma2:9b` (more capable, larger)
-- **Alternative:** `mistral:7b`, `qwen3:8b`
+- **Development/Testing:** `gemini-1.5-flash-latest` (fast, lower cost)
+- **Production/Quality:** `gemini-1.5-pro-latest` (highest reasoning quality)
+- **Experimentation:** Gemini experimental Pro releases (e.g., `gemini-1.5-pro-exp-0827`)
 
 ## Interactive CLI Commands
 
@@ -180,7 +180,7 @@ The system includes advanced JSON parsing for tool calls with multiple fallback 
 - Malformed JSON recovery
 
 ### Common Issues
-- **Model not found:** Run `ollama pull <model_name>` 
+- **Missing API key:** Export `GOOGLE_API_KEY` before starting the application
 - **CSV not found:** Ensure `knowledge_base/Homicides_2001_to_present.csv` exists
 - **Tool call parsing errors:** Check LLM temperature (lower = more structured responses)
 
@@ -196,7 +196,7 @@ This project evolved from a RAG (Retrieval Augmented Generation) system to MCP-b
 - **Tool calling:** LLM responds with `TOOL_CALL: {"name": "...", "arguments": {...}}` format
 - **Response synthesis:** Tool results are fed back to LLM for natural language formulation  
 - **Error recovery:** Graceful fallbacks when tool calls fail or are malformed
-- **Type safety:** Extensive use of typing hints and cast operations for Ollama client
+- **Type safety:** Extensive use of typing hints for the Gemini client wrapper
 
 ### Data Processing
 - **Date parsing:** Handles "MM/dd/yyyy HH:mm:ss AM/PM" format with error handling
@@ -206,7 +206,7 @@ This project evolved from a RAG (Retrieval Augmented Generation) system to MCP-b
 ## Dependencies & Requirements
 
 ### Core Dependencies
-- **ollama** - Local LLM client
+- **google-generativeai** - Gemini client SDK
 - **pandas** - Data analysis and CSV processing  
 - **mcp** - Model Context Protocol support
 - **pyyaml** - Configuration management

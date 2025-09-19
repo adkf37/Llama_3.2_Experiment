@@ -1,13 +1,13 @@
-# Local LLM with MCP Tools for Homicide Data Analysis
+# Gemini LLM with MCP Tools for Homicide Data Analysis
 
-This project implements a local Large Language Model with **Model Context Protocol (MCP)** tools for intelligent querying of homicide data. The system allows users to ask natural language questions about crime statistics and automatically calls appropriate data analysis tools.
+This project integrates Google's Gemini 1.5 Pro with **Model Context Protocol (MCP)** tools for intelligent querying of homicide data. The system allows users to ask natural language questions about crime statistics and automatically calls appropriate data analysis tools.
 
 ## 🚀 Features
 
 - **Intelligent Tool Calling**: Ask natural questions like "What location had the most homicides?" and the LLM automatically calls the right tools
 - **MCP Integration**: Uses Model Context Protocol for structured tool calling and data access  
 - **Homicide Data Analysis**: Comprehensive analysis of homicide records from 2001 to present
-- **Local LLM**: Runs completely locally using Ollama (no external API calls)
+- **Gemini Pro Integration**: Uses Google's Gemini 1.5 Pro API for higher-quality responses
 - **Interactive CLI**: User-friendly command-line interface with helpful commands
 - **Robust Parsing**: Advanced JSON parsing for reliable tool call extraction
 - **Rich Data Visualization**: Formatted output with statistics, trends, and insights
@@ -23,20 +23,16 @@ The system can intelligently answer questions like:
 
 ## 🛠️ Quick Start
 
-### 1. Install Ollama
-```powershell
-# Download from https://ollama.ai/ or use winget
-winget install Ollama.Ollama
+### 1. Enable Gemini API Access
+Create a Google AI Studio project and generate an API key with access to Gemini 1.5 Pro.
+
+### 2. Set Your API Key
+```bash
+export GOOGLE_API_KEY="your_api_key_here"
 ```
-
-### 2. Pull a Local Model
+On Windows PowerShell:
 ```powershell
-# Recommended: Fast and capable
-ollama pull llama3.2:3b
-
-# Alternative models:
-ollama pull gemma2:9b      # More capable, larger
-ollama pull mistral:7b     # Good balance
+$Env:GOOGLE_API_KEY="your_api_key_here"
 ```
 
 ### 3. Install Python Dependencies
@@ -48,7 +44,7 @@ pip install -r requirements.txt
 Edit `config.yaml` to set your preferred model:
 ```yaml
 model:
-  name: "llama3.2:3b"
+  name: "gemini-1.5-pro-latest"
   temperature: 0.7
   max_tokens: 2048
 ```
@@ -65,7 +61,7 @@ python main.py
 - **`intelligent_mcp.py`** - Intelligent MCP handler for tool calling and response parsing
 - **`mcp_integration.py`** - MCP protocol implementation and tool definitions
 - **`homicide_mcp.py`** - Homicide data handler and analysis functions
-- **`llama_client.py`** - Ollama client with tool calling capabilities
+- **`llama_client.py`** - Gemini client with tool calling capabilities
 
 ### Configuration & Setup
 - **`config.py`** - Configuration management system  
@@ -126,11 +122,11 @@ The `config.yaml` file controls model behavior:
 
 ```yaml
 model:
-  name: "llama3.2:3b"        # Ollama model name
-  temperature: 0.7           # Response creativity (0.0-2.0)
-  max_tokens: 2048          # Maximum response length
-  top_p: 0.9                # Nucleus sampling
-  context_window: 8192      # Model context size
+  name: "gemini-1.5-pro-latest"        # Gemini model name
+  temperature: 0.7                     # Response creativity (0.0-2.0)
+  max_tokens: 2048                    # Maximum response length
+  top_p: 0.9                          # Nucleus sampling
+  context_window: 8192                # Effective context size used for prompts
 
 app:
   debug: false              # Enable debug logging

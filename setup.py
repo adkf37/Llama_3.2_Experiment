@@ -29,24 +29,22 @@ def run_command(command, description):
         print(f"❌ An unexpected error occurred while running command '{command}': {ex}")
         return False
 
-def check_ollama():
-    """Check if Ollama is installed."""
-    try:
-        # Specify encoding and error handling
-        result = subprocess.run("ollama --version", shell=True, capture_output=True, text=True, encoding='utf-8', errors='replace')
-        if result.returncode == 0:
-            print("✅ Ollama is installed")
-            return True
-        else:
-            print("❌ Ollama not found")
-            return False
-    except:
-        print("❌ Ollama not found")
-        return False
+def check_gemini_api_key():
+    """Ensure a Gemini API key is available."""
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if api_key:
+        print("✅ GOOGLE_API_KEY detected")
+        return True
+
+    print("❌ GOOGLE_API_KEY not set")
+    print("   Create an API key in Google AI Studio and export it before running the app.")
+    print("   Linux/macOS: export GOOGLE_API_KEY=your_key")
+    print("   Windows PowerShell: $Env:GOOGLE_API_KEY=\"your_key\"")
+    return False
 
 def main():
     """Main setup function."""
-    print("🦙 Llama 3.2 RAG System Setup")
+    print("🤖 Gemini MCP System Setup")
     print("=" * 40)
     
     # Check Python version
@@ -66,35 +64,10 @@ def main():
         print("💡 Try upgrading pip: python -m pip install --upgrade pip")
         return False
     
-    # Check Ollama installation
-    if not check_ollama():
-        print("\n📥 Ollama not found. Please install it:")
-        print("   Windows: winget install Ollama.Ollama")
-        print("   Or download from: https://ollama.ai/")
-        print("   After installation, restart your terminal")
+    # Check Gemini API key
+    if not check_gemini_api_key():
         return False
-    
-    # Check if Ollama is running
-    try:
-        # Specify encoding and error handling
-        result = subprocess.run("ollama list", shell=True, capture_output=True, text=True, encoding='utf-8', errors='replace')
-        if result.returncode == 0:
-            print("✅ Ollama is running")
-        else:
-            print("⚠️  Ollama may not be running. Try: ollama serve")
-    except:
-        print("⚠️  Could not check Ollama status")
-    
-    # Try to pull Llama 3.2 model
-    print("\n🔄 Attempting to pull Llama 3.2 model...")
-    model_name = "llama3.2"
-    
-    if run_command(f"ollama pull {model_name}", f"Pulling {model_name} model"):
-        print(f"✅ {model_name} model is ready")
-    else:
-        print(f"⚠️  Could not pull {model_name} model automatically")
-        print(f"   You can pull it manually later: ollama pull {model_name}")
-    
+
     # Create data directory
     data_dir = Path("data")
     data_dir.mkdir(exist_ok=True)
@@ -110,10 +83,8 @@ def main():
     print("\nNext steps:")
     print("1. Start the system:")
     print("   python main.py")
-    print("\n2. Or start the web interface:")
-    print("   streamlit run web_app.py")
-    print("\n3. Add your own knowledge files to the knowledge_base/ directory")
-    
+    print("\n2. Add your own knowledge files to the knowledge_base/ directory")
+
     return True
 
 if __name__ == "__main__":

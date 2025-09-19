@@ -13,18 +13,8 @@ Different LLMs have varying capabilities:
 
 ## 🚀 Quick Start
 
-### 1. Install Models to Test
-```powershell
-# Recommended starter set
-ollama pull llama3.2:3b      # Good baseline
-ollama pull gemma2:9b        # Large, capable
-ollama pull mistral:7b       # Instruction-following
-ollama pull phi3:mini        # Efficient
-
-# Optional: smaller/larger models
-ollama pull llama3.2:1b      # Fastest
-ollama pull qwen2.5:7b       # Alternative
-```
+### 1. Configure Gemini Access
+Set the `GOOGLE_API_KEY` environment variable so the tests can authenticate with the Gemini API.
 
 ### 2. Run the Test Suite
 ```powershell
@@ -32,7 +22,7 @@ python test_llm_performance.py
 ```
 
 This will:
-- Auto-detect available models
+- Auto-detect configured models
 - Run standardized test cases
 - Generate performance scores
 - Save detailed results to JSON
@@ -75,26 +65,11 @@ This will:
 
 ## 📋 Model Categories & Expected Performance
 
-### Small Models (1-3B parameters)
-- **Examples:** llama3.2:1b, gemma2:2b, llama3.2:3b
-- **Speed:** Very Fast
-- **Capability:** Basic to Good
-- **Issues:** May struggle with complex JSON, parameter confusion
-- **Best for:** Quick responses, simple queries
-
-### Medium Models (4-8B parameters)  
-- **Examples:** mistral:7b, qwen2.5:7b, llama3.1:8b
-- **Speed:** Moderate
-- **Capability:** Good to Excellent
-- **Issues:** Occasional parameter errors
-- **Best for:** Balanced performance, most use cases
-
-### Large Models (9B+ parameters)
-- **Examples:** gemma2:9b, mistral-nemo, qwen2.5:14b
-- **Speed:** Slower
-- **Capability:** Excellent
-- **Issues:** Resource intensive
-- **Best for:** Complex queries, high accuracy needs
+### Gemini Variants
+- **Examples:** gemini-1.5-pro-latest, gemini-1.5-flash-latest, gemini-1.5-pro-exp-0827
+- **Speed:** Flash variants respond faster but may trade off reasoning depth
+- **Capability:** Pro variants provide the highest accuracy for tool calling
+- **Best for:** Pick based on desired balance between latency and answer quality
 
 ## 🔧 Customizing Tests
 
@@ -140,11 +115,11 @@ model:
 {
   "test_suite_version": "1.0",
   "timestamp": "2024-XX-XX",
-  "models_tested": [
-    {
-      "model": "llama3.2:3b", 
-      "overall_score": 85.7,
-      "categories": {
+    "models_tested": [
+      {
+        "model": "gemini-1.5-pro-latest",
+        "overall_score": 85.7,
+        "categories": {
         "simple_queries": [...],
         "which_x_most_queries": [...] 
       }
@@ -173,24 +148,24 @@ model:
 4. **Test with your specific use cases** beyond the standard suite
 
 ### For Different Use Cases
-- **Speed-critical:** Use smaller models (1-3B)
-- **Accuracy-critical:** Use larger models (9B+)
-- **Balanced:** Medium models (4-8B) often optimal
-- **Code-heavy:** Try code-specialized models
+- **Speed-critical:** Try `gemini-1.5-flash-latest`
+- **Accuracy-critical:** Use `gemini-1.5-pro-latest`
+- **Balanced:** Experiment with experimental Pro releases for the latest improvements
+- **Cost-sensitive:** Lower max output tokens and temperature to minimize token usage
 
 ## 🚨 Troubleshooting
 
 ### Common Issues
 
 **Model fails to load:**
-- Check if model is installed: `ollama list`
+- Verify API access: `python - <<'PY'` / simple request to ensure authentication
 - Verify model name/tag is correct
 - Ensure sufficient system resources
 
 **All tests fail:**
 - Check if MCP data is loaded properly
 - Verify config.yaml is valid
-- Test with working model first (llama3.2:3b)
+- Test with working model first (`gemini-1.5-pro-latest`)
 
 **Inconsistent results:**
 - Lower temperature for more consistency
@@ -215,7 +190,7 @@ model:
 
 - Check `model_configs.yaml` for detailed model specifications
 - Review test results JSON files for patterns
-- Monitor Ollama releases for new models
+- Monitor Gemini release notes for model improvements
 - Consider fine-tuning for your specific domain
 
 Happy testing! 🧪

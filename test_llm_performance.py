@@ -100,16 +100,10 @@ class LLMPerformanceTester:
             except Exception as e:
                 print(f"⚠️  Could not load models from configuration: {e}")
 
-        # Fallback to a sensible default list based on your available models
+        # Fallback to Gemini defaults
         return [
-            "qwen3:1.7b",
-            "qwen3:8b", 
-            "gemma3:270m",
-            "gemma3:12b",
-            "deepseek-r1:1.5b",
-            "llama3.2:3b",
-            "llama3.2:latest",
-            "magistral:latest"
+            "gemini-1.5-pro-latest",
+            "gemini-1.5-flash-latest"
         ]
 
     def test_model(self, model_name: str) -> Dict[str, Any]:
@@ -298,38 +292,16 @@ class LLMPerformanceTester:
         return all_results
     
     def check_available_models(self) -> List[str]:
-        """Check which models are actually available locally."""
-        print("🔍 Checking available models...")
-        available = []
-        
-        try:
-            import subprocess
-            result = subprocess.run(
-                ["ollama", "list"], 
-                capture_output=True, 
-                text=True,
-                encoding='utf-8',
-                errors='replace'
-            )
-            
-            if result.returncode == 0:
-                lines = result.stdout.strip().split('\n')[1:]  # Skip header
-                for line in lines:
-                    if line.strip():
-                        model_name = line.split()[0]
-                        if model_name in self.models_to_test:
-                            available.append(model_name)
-                            print(f"  ✅ {model_name}")
-                        
-            if not available:
-                print("  ⚠️  No test models found, will try default models")
-                available = ["llama3.2:3b"]  # Fallback
-                
-        except Exception as e:
-            print(f"  ❌ Error checking models: {e}")
-            available = ["llama3.2:3b"]  # Fallback
-        
-        return available
+        """Return configured models for testing."""
+        print("🔍 Using configured Gemini models for testing...")
+        if self.models_to_test:
+            for model in self.models_to_test:
+                print(f"  ✅ {model}")
+            return self.models_to_test
+
+        fallback = ["gemini-1.5-pro-latest"]
+        print("  ⚠️  No models configured; falling back to gemini-1.5-pro-latest")
+        return fallback
     
     def generate_summary(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Generate a summary of all test results."""
@@ -413,7 +385,7 @@ def main():
     tester = LLMPerformanceTester()
     
     print("This will test different LLMs with the MCP homicide data tools.")
-    print("Make sure you have the models installed with: ollama pull <model_name>")
+    print("Ensure GOOGLE_API_KEY is set and the configured Gemini models are accessible.")
     
     # Run all tests
     results = tester.run_all_tests()

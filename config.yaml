@@ -1,11 +1,12 @@
 # Model Configuration
 model:
-  name: "deepseek-r1:1.5b"
+  name: "gemini-1.5-pro-latest"
   temperature: 0.7
   top_p: 0.9
   max_tokens: 2048
   repeat_penalty: 1.1
   context_window: 40000
+  api_key_env: "GOOGLE_API_KEY"
 
 # RAG Configuration
 rag:
