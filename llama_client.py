@@ -22,7 +22,6 @@ class LlamaClient:
         """Check if the specified model is available locally."""
         try:
             models_response = self.client.list()
-            print(f"🔍 Debug: models response structure: {models_response}")  # Add debug line
             
             # Handle the ListResponse object from Ollama
             if hasattr(models_response, 'models'):
@@ -35,9 +34,6 @@ class LlamaClient:
             # Filter out empty names
             available_models = [name for name in available_models if name]
             
-            print(f"🔍 Available models: {available_models}")  # Add debug line
-            print(f"🔍 Looking for: {self.model_name}")  # Add debug line
-            
             if self.model_name not in available_models:
                 print(f"⚠️  Model {self.model_name} not found. Available models:")
                 for model in available_models:
@@ -47,7 +43,6 @@ class LlamaClient:
             return True
         except Exception as e:
             print(f"❌ Error checking model availability: {e}")
-            print(f"🔍 Debug: Exception type: {type(e)}")  # Add debug line
             return False
 
     def generate_with_tools(self, prompt: str, tools: List[Dict[str, Any]], 
@@ -113,7 +108,23 @@ class LlamaClient:
             if stream:
                 return response
             else:
-                return response['message']['content']
+                # Handle different response types from Ollama
+                try:
+                    # Try accessing as object first
+                    message = getattr(response, 'message', None)
+                    if message:
+                        content = getattr(message, 'content', None)
+                        if content:
+                            return content
+                    
+                    # Try accessing as dict
+                    if isinstance(response, dict) and 'message' in response:
+                        return response['message']['content']
+                    
+                    # Fallback to string conversion
+                    return str(response)
+                except Exception:
+                    return str(response)
                 
         except Exception as e:
             return f"❌ Error generating response: {e}"

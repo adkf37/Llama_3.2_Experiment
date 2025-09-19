@@ -26,9 +26,16 @@ class LocalLLMApp:
         print("🤖 Using base model")
         return self.llama_client.generate(prompt=question, temperature=temperature)
 
-    def ask_question_with_mcp(self, question: str, temperature: Optional[float] = None) -> str:
+    def ask_question_with_mcp(self, question: str, temperature: Optional[float] = None):
         """Ask a question that can use MCP tools intelligently."""
-        return intelligent_mcp.handle_question_with_tools(question, self.llama_client)
+        # Pass temperature through to the intelligent MCP handler
+        # The temperature will be handled by the LlamaClient when it generates responses
+        result = intelligent_mcp.handle_question_with_tools(question, self.llama_client)
+        
+        # Handle both string and dict returns from intelligent_mcp
+        if isinstance(result, dict):
+            return result.get("final_answer", str(result))
+        return str(result)
 
     def interactive_mode(self):
         """Run the application in interactive mode."""

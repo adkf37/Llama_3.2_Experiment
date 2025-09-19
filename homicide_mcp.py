@@ -142,6 +142,7 @@ class HomicideDataMCP:
         if 'Arrest' in clean_df.columns:
             clean_df['Arrest'] = (
                 clean_df['Arrest']
+                .fillna(False)
                 .astype(str)
                 .str.lower()
                 .isin(['true', '1', 'yes'])
@@ -150,6 +151,7 @@ class HomicideDataMCP:
         if 'Domestic' in clean_df.columns:
             clean_df['Domestic'] = (
                 clean_df['Domestic']
+                .fillna(False)
                 .astype(str)
                 .str.lower()
                 .isin(['true', '1', 'yes'])
@@ -159,6 +161,9 @@ class HomicideDataMCP:
 
     def get_records_by_year(self, year: int, limit: int = 100) -> Dict[str, Any]:
         """Get homicide records for a specific year."""
+        if self.df is None:
+            return {'error': "Homicide data not loaded"}
+            
         try:
             filtered_df = self.df[self.df['Year'] == year].head(limit)
             
@@ -191,6 +196,9 @@ class HomicideDataMCP:
 
     def get_statistics(self, start_year: Optional[int] = None, end_year: Optional[int] = None) -> Dict[str, Any]:
         """Get statistics about homicides."""
+        if self.df is None:
+            return {'error': "Homicide data not loaded"}
+            
         try:
             df = self.df.copy()
             
@@ -226,6 +234,9 @@ class HomicideDataMCP:
 
     def search_by_location(self, location_query: str, limit: int = 50) -> Dict[str, Any]:
         """Search homicides by location."""
+        if self.df is None:
+            return {'error': "Homicide data not loaded"}
+            
         try:
             df = self.df.copy()
             
@@ -262,6 +273,9 @@ class HomicideDataMCP:
 
     def get_iucr_info(self, iucr_code: Optional[str] = None) -> Dict[str, Any]:
         """Get information about IUCR codes."""
+        if self.df is None:
+            return {'error': "Homicide data not loaded"}
+            
         try:
             if iucr_code:
                 # Get specific IUCR code info
@@ -302,6 +316,9 @@ class HomicideDataMCP:
                                 top_n: int = 1000,
                                 limit: int = 1000) -> Dict[str, Any]:
         """Advanced homicide query with multiple filter options."""
+        if self.df is None:
+            return {'error': "Homicide data not loaded"}
+            
         try:
             df = self.df.copy()
             filters_applied = []
@@ -353,7 +370,15 @@ class HomicideDataMCP:
             year_breakdown = {}
             if total_matches > 0:
                 year_counts = df['Year'].value_counts().sort_index()
-                year_breakdown = {str(int(k)): int(v) for k, v in year_counts.items() if pd.notna(k)}
+                for k, v in year_counts.items():
+                    try:
+                        # Convert to string first, then check and convert
+                        k_str = str(k)
+                        if k_str not in ['nan', 'None', '']:
+                            year_key = str(int(float(k_str)))
+                            year_breakdown[year_key] = int(v)
+                    except (ValueError, TypeError, OverflowError):
+                        continue
             
             # Get geographic breakdowns
             ward_breakdown = {}
@@ -364,15 +389,15 @@ class HomicideDataMCP:
             if total_matches > 0:
                 # Ward breakdown
                 ward_counts = df['Ward'].value_counts().head(top_n)
-                ward_breakdown = {str(k): int(v) for k, v in ward_counts.items() if pd.notna(k) and str(k) != 'nan'}
+                ward_breakdown = {str(k): int(v) for k, v in ward_counts.items() if k is not None and str(k) != 'nan'}
                 
                 # District breakdown
                 district_counts = df['District'].value_counts().head(top_n)
-                district_breakdown = {str(k): int(v) for k, v in district_counts.items() if pd.notna(k) and str(k) != 'nan'}
+                district_breakdown = {str(k): int(v) for k, v in district_counts.items() if k is not None and str(k) != 'nan'}
                 
                 # Community area breakdown
                 ca_counts = df['Community Area'].value_counts().head(top_n)
-                community_area_breakdown = {str(k): int(v) for k, v in ca_counts.items() if pd.notna(k) and str(k) != 'nan'}
+                community_area_breakdown = {str(k): int(v) for k, v in ca_counts.items() if k is not None and str(k) != 'nan'}
                 
                 # Handle group_by for focused results
                 if group_by:

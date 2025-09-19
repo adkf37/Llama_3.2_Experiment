@@ -6,7 +6,8 @@ Tests different models on various query types and complexity levels.
 
 import json
 import time
-from typing import Dict, List, Any
+import pandas as pd
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
 
@@ -99,13 +100,16 @@ class LLMPerformanceTester:
             except Exception as e:
                 print(f"⚠️  Could not load models from configuration: {e}")
 
-        # Fallback to a sensible default list
+        # Fallback to a sensible default list based on your available models
         return [
-            "llama3.2:3b",
-            "gemma3:12b",
+            "qwen3:1.7b",
+            "qwen3:8b", 
             "gemma3:270m",
-            "mistral:latest",
-            "qwen3:8b"
+            "gemma3:12b",
+            "deepseek-r1:1.5b",
+            "llama3.2:3b",
+            "llama3.2:latest",
+            "magistral:latest"
         ]
 
     def test_model(self, model_name: str) -> Dict[str, Any]:
@@ -349,7 +353,7 @@ class LLMPerformanceTester:
         
         return summary
     
-    def save_results(self, results: Dict[str, Any], filename: str = None):
+    def save_results(self, results: Dict[str, Any], filename: Optional[str] = None):
         """Save test results to a JSON file."""
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
