@@ -22,29 +22,140 @@ from chicago_data_fetcher import ChicagoHomicideDataFetcher
 
 class HomicideDataMCP:
     """MCP Server for Chicago Homicide Data Analysis."""
-    
-    def __init__(self, csv_path: str):
+
+    def __init__(
+        self,
+        csv_path: str,
+        data_fetcher: Optional[ChicagoHomicideDataFetcher] = None,
+        preloaded_df: Optional[pd.DataFrame] = None,
+        force_refresh: bool = False
+    ):
         self.csv_path = Path(csv_path)
-        self.df = None
-        self.load_data()
-        
-    def load_data(self):
-        """Load the homicide CSV data."""
+        self.data_fetcher = data_fetcher
+        self.df: Optional[pd.DataFrame] = None
+        self.data_source: str = "uninitialized"
+        self.load_data(preloaded_df=preloaded_df, force_refresh=force_refresh)
+
+    def load_data(
+        self,
+        preloaded_df: Optional[pd.DataFrame] = None,
+        force_refresh: bool = False
+    ):
+        """Load homicide data from a preloaded frame, API fetcher, or CSV."""
         try:
-            self.df = pd.read_csv(self.csv_path)
-            
-            # Clean and standardize data
-            # Specify date format to avoid parsing warning: MM/dd/yyyy HH:mm:ss AM/PM
-            self.df['Date'] = pd.to_datetime(self.df['Date'], format='%m/%d/%Y %I:%M:%S %p', errors='coerce')
-            self.df['Year'] = pd.to_numeric(self.df['Year'], errors='coerce')
-            self.df['Arrest'] = self.df['Arrest'].astype(str).str.lower().isin(['true', '1', 'yes'])
-            self.df['Domestic'] = self.df['Domestic'].astype(str).str.lower().isin(['true', '1', 'yes'])
-            
-            print(f"✅ Loaded {len(self.df)} homicide records from {self.csv_path}")
-            
+            if preloaded_df is not None:
+                self.df = self._prepare_dataframe(preloaded_df)
+                self.data_source = "api_preloaded"
+                self._persist_dataframe()
+                print(f"✅ Loaded {len(self.df)} homicide records from API fetcher")
+                return
+
+            if self.csv_path.exists() and not force_refresh:
+                csv_df = pd.read_csv(self.csv_path)
+                self.df = self._prepare_dataframe(csv_df)
+                self.data_source = "csv"
+                print(f"✅ Loaded {len(self.df)} homicide records from {self.csv_path}")
+                return
+
+            if self.data_fetcher is not None:
+                try:
+                    fetched_df = self.data_fetcher.fetch_all_data(force_refresh=force_refresh)
+                    if fetched_df is not None and not fetched_df.empty:
+                        self.df = self._prepare_dataframe(fetched_df)
+                        self.data_source = "api"
+                        self._persist_dataframe()
+                        print(f"✅ Loaded {len(self.df)} homicide records via API fetcher")
+                        return
+                except Exception as api_error:
+                    print(f"⚠️  API data fetch failed ({api_error}), attempting CSV fallback...")
+
+            if self.csv_path.exists():
+                csv_df = pd.read_csv(self.csv_path)
+                self.df = self._prepare_dataframe(csv_df)
+                self.data_source = "csv"
+                print(f"✅ Loaded {len(self.df)} homicide records from {self.csv_path}")
+                return
+
+            raise FileNotFoundError(
+                "No homicide data source available. Provide a CSV or enable the API fetcher."
+            )
+
         except Exception as e:
             print(f"❌ Error loading homicide data: {e}")
             raise
+
+    def _persist_dataframe(self) -> None:
+        """Persist the in-memory dataframe to the canonical CSV location."""
+        if self.df is None:
+            return
+
+        try:
+            self.csv_path.parent.mkdir(parents=True, exist_ok=True)
+            self.df.to_csv(self.csv_path, index=False)
+        except Exception as persist_error:
+            print(f"⚠️  Unable to persist homicide dataset to {self.csv_path}: {persist_error}")
+
+    def _prepare_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean and standardize homicide dataframe columns."""
+        clean_df = df.copy()
+
+        # Normalize expected column casing if API returns lowercase headers
+        column_mapping = {
+            'id': 'ID',
+            'case_number': 'Case Number',
+            'block': 'Block',
+            'iucr': 'IUCR',
+            'primary_type': 'Primary Type',
+            'description': 'Description',
+            'location_description': 'Location Description',
+            'arrest': 'Arrest',
+            'domestic': 'Domestic',
+            'district': 'District',
+            'ward': 'Ward',
+            'community_area': 'Community Area',
+            'fbi_code': 'FBI Code',
+            'x_coordinate': 'X Coordinate',
+            'y_coordinate': 'Y Coordinate',
+            'year': 'Year',
+            'updated_on': 'Updated On',
+            'latitude': 'Latitude',
+            'longitude': 'Longitude',
+            'location': 'Location'
+        }
+
+        for source_col, target_col in column_mapping.items():
+            if source_col in clean_df.columns and target_col not in clean_df.columns:
+                clean_df[target_col] = clean_df[source_col]
+
+        # Clean and standardize data
+        # Specify date format to avoid parsing warning: MM/dd/yyyy HH:mm:ss AM/PM
+        if 'Date' in clean_df.columns:
+            clean_df['Date'] = pd.to_datetime(
+                clean_df['Date'],
+                format='%m/%d/%Y %I:%M:%S %p',
+                errors='coerce'
+            )
+
+        if 'Year' in clean_df.columns:
+            clean_df['Year'] = pd.to_numeric(clean_df['Year'], errors='coerce')
+
+        if 'Arrest' in clean_df.columns:
+            clean_df['Arrest'] = (
+                clean_df['Arrest']
+                .astype(str)
+                .str.lower()
+                .isin(['true', '1', 'yes'])
+            )
+
+        if 'Domestic' in clean_df.columns:
+            clean_df['Domestic'] = (
+                clean_df['Domestic']
+                .astype(str)
+                .str.lower()
+                .isin(['true', '1', 'yes'])
+            )
+
+        return clean_df
 
     def get_records_by_year(self, year: int, limit: int = 100) -> Dict[str, Any]:
         """Get homicide records for a specific year."""
@@ -411,7 +522,12 @@ def main():
     
     # Initialize the homicide data
     try:
-        homicide_data = HomicideDataMCP(args.csv_path)
+        data_fetcher = ChicagoHomicideDataFetcher()
+        homicide_data = HomicideDataMCP(
+            args.csv_path,
+            data_fetcher=data_fetcher,
+            force_refresh=args.test
+        )
         print(f"✅ Homicide MCP server initialized successfully")
         
         if args.test:

@@ -8,6 +8,7 @@ This module integrates Model Context Protocol tools with the main chat interface
 from typing import Dict, List, Any, Optional
 import json
 from homicide_mcp import HomicideDataMCP, create_homicide_tools
+from chicago_data_fetcher import ChicagoHomicideDataFetcher
 from pathlib import Path
 
 class MCPIntegration:
@@ -15,21 +16,43 @@ class MCPIntegration:
     
     def __init__(self):
         self.homicide_data = None
+        self.data_fetcher: Optional[ChicagoHomicideDataFetcher] = None
         self.available_tools = []
         self.initialize_mcp_tools()
-    
+
     def initialize_mcp_tools(self):
         """Initialize MCP tools and data sources."""
         try:
-            # Initialize homicide data
             csv_path = Path("./knowledge_base/Homicides_2001_to_present.csv")
-            if csv_path.exists():
-                self.homicide_data = HomicideDataMCP(str(csv_path))
+            data_loaded = False
+
+            # Prefer API fetcher for fresher data
+            try:
+                self.data_fetcher = ChicagoHomicideDataFetcher()
+                api_df = self.data_fetcher.fetch_all_data()
+                self.homicide_data = HomicideDataMCP(
+                    str(csv_path),
+                    data_fetcher=self.data_fetcher,
+                    preloaded_df=api_df
+                )
+                data_loaded = True
+            except Exception as api_error:
+                print(f"⚠️  Unable to load homicide data from API: {api_error}")
+
+            if not data_loaded:
+                if csv_path.exists():
+                    self.homicide_data = HomicideDataMCP(
+                        str(csv_path),
+                        data_fetcher=self.data_fetcher
+                    )
+                    data_loaded = True
+                else:
+                    print(f"⚠️ Homicide CSV not found at {csv_path}")
+
+            if data_loaded and self.homicide_data is not None:
                 self.available_tools = create_homicide_tools()
                 print(f"✅ MCP initialized with {len(self.available_tools)} homicide data tools")
-            else:
-                print(f"⚠️ Homicide CSV not found at {csv_path}")
-                
+
         except Exception as e:
             print(f"❌ Error initializing MCP tools: {e}")
     
