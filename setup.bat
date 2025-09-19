@@ -1,52 +1,57 @@
 @echo off
-echo 🦙 Llama 3.2 RAG System - Setup Batch File
-echo ==========================================
+setlocal ENABLEDELAYEDEXPANSION
 
-echo.
-echo 🔍 Checking if Ollama is installed...
-ollama --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ❌ Ollama not found
-    echo.
-    echo 📥 Please install Ollama manually:
-    echo    1. Download from https://ollama.ai/
-    echo    2. Or use: winget install Ollama.Ollama
-    echo    3. Restart your terminal after installation
-    echo    4. Run this script again
-    pause
+ECHO 🤖 Gemini MCP System Setup
+ECHO ================================
+
+REM Check Python
+python --version >nul 2>&1
+IF ERRORLEVEL 1 (
+    ECHO ❌ Python not found
+    ECHO    Install Python 3.8+ from https://www.python.org/
     exit /b 1
-) else (
-    echo ✅ Ollama is installed
+) ELSE (
+    FOR /F "tokens=*" %%i IN ('python --version') DO ECHO ✅ %%i detected
 )
 
-echo.
-echo 🚀 Starting Ollama service...
-start /B ollama serve
-timeout /t 3 /nobreak >nul
-
-echo.
-echo 🔽 Pulling Llama 3.2 model (this may take several minutes)...
-ollama pull llama3.2
-if %errorlevel% equ 0 (
-    echo ✅ Llama 3.2 model downloaded successfully
-) else (
-    echo ⚠️ Could not pull Llama 3.2 model automatically
-    echo    You can try again later with: ollama pull llama3.2
+REM Check pip
+pip --version >nul 2>&1
+IF ERRORLEVEL 1 (
+    ECHO ❌ pip not found
+    exit /b 1
+) ELSE (
+    FOR /F "tokens=*" %%i IN ('pip --version') DO ECHO ✅ %%i detected
 )
 
-echo.
-echo 📁 Creating directories...
-if not exist "data" mkdir data
-if not exist "knowledge_base" mkdir knowledge_base
-echo ✅ Directories created
+REM Check GOOGLE_API_KEY
+IF "%GOOGLE_API_KEY%"=="" (
+    ECHO ❌ GOOGLE_API_KEY is not set
+    ECHO    Create an API key in Google AI Studio and run:
+    ECHO    set GOOGLE_API_KEY=your_key
+    exit /b 1
+) ELSE (
+    ECHO ✅ GOOGLE_API_KEY detected
+)
 
-echo.
-echo 🎉 Setup completed!
-echo.
-echo Next steps:
-echo 1. Command-line interface: python main.py
-echo 2. Web interface: streamlit run web_app.py
-echo.
-echo Press any key to launch the web interface...
-pause >nul
-streamlit run web_app.py
+REM Install Python dependencies
+ECHO 📦 Installing Python dependencies...
+pip install -r requirements.txt
+IF ERRORLEVEL 1 (
+    ECHO ❌ Failed to install Python dependencies
+    exit /b 1
+) ELSE (
+    ECHO ✅ Dependencies installed
+)
+
+REM Create directories
+IF NOT EXIST data mkdir data
+IF NOT EXIST knowledge_base mkdir knowledge_base
+ECHO ✅ Project directories ready
+
+ECHO.
+ECHO 🎉 Setup completed!
+ECHO Next steps:
+ECHO   python main.py
+ECHO   Add knowledge files to knowledge_base\ if desired
+
+endlocal

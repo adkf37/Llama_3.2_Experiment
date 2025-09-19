@@ -1,84 +1,59 @@
-import ollama
-from ollama._types import Options
-from typing import List, Dict, Any, Optional, Union, cast
+import os
+from typing import List, Dict, Any, Optional, Union
+
+import google.generativeai as genai
+
 from config import config
 from prompt_registry import build_tool_system_prompt
-import json
+
 
 class LlamaClient:
-    """Client for interacting with Llama models via Ollama."""
-    
+    """Client for interacting with Gemini models via the Google Generative AI API."""
+
     def __init__(self, model_name: Optional[str] = None):
         self.config = config
-        self.model_name = model_name or self.config.get('model.name', 'llama3.2:3b')
+        self.model_name = model_name or self.config.get('model.name', 'gemini-1.5-pro-latest')
         self.system_prompt_variant = self.config.get('prompts.system_prompt_variant', 'tool_use_v1')
-        self.client = ollama.Client()
-        
-        # Check if model is available
-        if not self._check_model_availability():
-            print(f"⚠️  Model {self.model_name} not found. Please pull it with: ollama pull {self.model_name}")
 
-    def _check_model_availability(self) -> bool:
-        """Check if the specified model is available locally."""
-        try:
-            models_response = self.client.list()
-            
-            # Handle the ListResponse object from Ollama
-            if hasattr(models_response, 'models'):
-                # Extract model names from the Model objects
-                available_models = [model.model for model in models_response.models]
-            else:
-                print(f"🔍 Debug: Unexpected models structure: {type(models_response)}")
-                return False
-            
-            # Filter out empty names
-            available_models = [name for name in available_models if name]
-            
-            if self.model_name not in available_models:
-                print(f"⚠️  Model {self.model_name} not found. Available models:")
-                for model in available_models:
-                    print(f"  📦 {model}")
-                print(f"To download the model, run: ollama pull {self.model_name}")
-                return False
-            return True
-        except Exception as e:
-            print(f"❌ Error checking model availability: {e}")
-            return False
+        api_key_env = self.config.get('model.api_key_env', 'GOOGLE_API_KEY')
+        api_key = os.getenv(api_key_env)
 
-    def generate_with_tools(self, prompt: str, tools: List[Dict[str, Any]], 
-                          temperature: Optional[float] = None,
-                          max_tokens: Optional[int] = None) -> Dict[str, Any]:
+        if not api_key:
+            raise EnvironmentError(
+                f"Missing Gemini API key. Set the '{api_key_env}' environment variable."
+            )
+
+        genai.configure(api_key=api_key)
+        self.client = genai.GenerativeModel(self.model_name)
+
+    def generate_with_tools(self, prompt: str, tools: List[Dict[str, Any]],
+                            temperature: Optional[float] = None,
+                            max_tokens: Optional[int] = None) -> Dict[str, Any]:
         """Generate response with tool calling capability."""
         temperature = temperature or self.config.get('model.temperature', 0.7)
         max_tokens = max_tokens or self.config.get('model.max_tokens', 2048)
-        
-        system_prompt = build_tool_system_prompt(self.system_prompt_variant, tools)
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt}
-        ]
+        system_prompt = build_tool_system_prompt(self.system_prompt_variant, tools)
+        composed_prompt = f"{system_prompt}\n\nUser question: {prompt}"
 
         try:
-            typed_options = cast(Options, {
+            generation_config = {
                 'temperature': temperature,
-                'num_predict': max_tokens,
-                'top_p': self.config.get('model.top_p', 0.9),
-                'repeat_penalty': self.config.get('model.repeat_penalty', 1.1)
-            })
-
-            response = self.client.chat(
-                model=self.model_name,
-                messages=messages,
-                stream=False,
-                options=typed_options
-            )
-            
-            return {
-                "content": response['message']['content'],
-                "needs_tool_call": "TOOL_CALL:" in response['message']['content']
+                'max_output_tokens': max_tokens,
+                'top_p': self.config.get('model.top_p', 0.9)
             }
-            
+
+            response = self.client.generate_content(
+                composed_prompt,
+                generation_config=generation_config
+            )
+
+            text = getattr(response, 'text', '') or ''
+            return {
+                "content": text,
+                "needs_tool_call": "TOOL_CALL:" in text
+            }
+
         except Exception as e:
             return {"content": f"❌ Error generating response: {e}", "needs_tool_call": False}
 
@@ -89,54 +64,39 @@ class LlamaClient:
         """Generate a response from the model."""
         temperature = temperature or self.config.get('model.temperature', 0.7)
         max_tokens = max_tokens or self.config.get('model.max_tokens', 2048)
-        
-        try:
-            typed_options = cast(Options, {
-                'temperature': temperature,
-                'num_predict': max_tokens,
-                'top_p': self.config.get('model.top_p', 0.9),
-                'repeat_penalty': self.config.get('model.repeat_penalty', 1.1)
-            })
 
-            response = self.client.chat(
-                model=self.model_name,
-                messages=[{'role': 'user', 'content': prompt}],
-                stream=stream,
-                options=typed_options 
-            )
-            
+        try:
+            generation_config = {
+                'temperature': temperature,
+                'max_output_tokens': max_tokens,
+                'top_p': self.config.get('model.top_p', 0.9)
+            }
+
             if stream:
-                return response
-            else:
-                # Handle different response types from Ollama
-                try:
-                    # Try accessing as object first
-                    message = getattr(response, 'message', None)
-                    if message:
-                        content = getattr(message, 'content', None)
-                        if content:
-                            return content
-                    
-                    # Try accessing as dict
-                    if isinstance(response, dict) and 'message' in response:
-                        return response['message']['content']
-                    
-                    # Fallback to string conversion
-                    return str(response)
-                except Exception:
-                    return str(response)
-                
+                return self.client.generate_content(
+                    prompt,
+                    generation_config=generation_config,
+                    stream=True
+                )
+
+            response = self.client.generate_content(
+                prompt,
+                generation_config=generation_config
+            )
+
+            return getattr(response, 'text', str(response))
+
         except Exception as e:
             return f"❌ Error generating response: {e}"
 
     def generate_with_context(self, prompt: str, context: str,
-                             temperature: Optional[float] = None,
-                             max_tokens: Optional[int] = None) -> str:
+                              temperature: Optional[float] = None,
+                              max_tokens: Optional[int] = None) -> str:
         """Generate a response with provided context."""
         context_prompt = f"""Context: {context}
 
 Question: {prompt}
 
 Answer based on the context provided:"""
-        
+
         return self.generate(context_prompt, temperature, max_tokens)
